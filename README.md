@@ -23,7 +23,7 @@ DrawDB is a robust and user-friendly database entity relationship diagram (ERD) 
 ### Local Development
 
 ```bash
-git clone https://github.com/drawdb-io/drawdb
+git clone https://github.com/K3-Team/drawdb
 cd drawdb
 npm install
 npm run dev
@@ -32,13 +32,11 @@ npm run dev
 ### Build
 
 ```bash
-git clone https://github.com/drawdb-io/drawdb
+git clone https://github.com/K3-Team/drawdb
 cd drawdb
 npm install
 npm run build
 ```
-
-If you want to enable sharing, set up the [server](https://github.com/drawdb-io/drawdb-server) and environment variables according to `.env.sample`. This is optional unless you need to share files.
 
 ## Collaboration server
 
