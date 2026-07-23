@@ -4,6 +4,7 @@ import http from "node:http";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import express from "express";
+import { loadTokens, requireAuth } from "./auth.js";
 import { createDiagramStore, openDatabase } from "./database.js";
 import { DIAGRAM_ID_PATTERN, isPlainObject } from "./protocol.js";
 import { attachCollaborationServer } from "./websocket.js";
@@ -20,6 +21,14 @@ export function createApplication({ databasePath, staticPath } = {}) {
   app.disable("x-powered-by");
   app.set("trust proxy", 1);
   app.use(express.json({ limit: MAX_DOCUMENT_BYTES }));
+
+  const tokens = loadTokens();
+  if (tokens.size === 0) {
+    console.warn(
+      "[collab] No COLLAB_TOKENS configured — API is UNAUTHENTICATED (dev only).",
+    );
+  }
+  app.use("/api", requireAuth(tokens));
 
   const validId = (req, res, next) => {
     if (!DIAGRAM_ID_PATTERN.test(req.params.id || "")) {
@@ -107,7 +116,7 @@ export function createApplication({ databasePath, staticPath } = {}) {
 
   const server = http.createServer(app);
   const websocket = attachCollaborationServer(server, store);
-  return { app, server, websocket, database, store };
+  return { app, server, websocket, database, store, tokens };
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
