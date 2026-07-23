@@ -38,6 +38,12 @@ export function createApplication({ databasePath, staticPath } = {}) {
       "[collab] No COLLAB_TOKENS configured — API is UNAUTHENTICATED (dev only).",
     );
   }
+  if (authRequired && loadAllowedOrigins() === null) {
+    console.error(
+      "[collab] Refusing to start: auth is required but no ALLOWED_ORIGINS allowlist configured.",
+    );
+    throw new Error("ALLOWED_ORIGINS required when auth is enforced");
+  }
   app.use("/api", requireAuth(tokens));
 
   const validId = (req, res, next) => {

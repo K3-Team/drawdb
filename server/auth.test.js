@@ -114,6 +114,7 @@ test("createApplication fails closed when auth is required but no tokens configu
     COLLAB_REQUIRE_AUTH: process.env.COLLAB_REQUIRE_AUTH,
     COLLAB_TOKENS: process.env.COLLAB_TOKENS,
     COLLAB_TOKENS_FILE: process.env.COLLAB_TOKENS_FILE,
+    ALLOWED_ORIGINS: process.env.ALLOWED_ORIGINS,
     NODE_ENV: process.env.NODE_ENV,
   };
   const restore = () => {
@@ -126,6 +127,7 @@ test("createApplication fails closed when auth is required but no tokens configu
   try {
     delete process.env.COLLAB_TOKENS;
     delete process.env.COLLAB_TOKENS_FILE;
+    delete process.env.ALLOWED_ORIGINS;
     delete process.env.NODE_ENV;
 
     // Auth required + no tokens => throws (fail closed).
@@ -135,9 +137,16 @@ test("createApplication fails closed when auth is required but no tokens configu
       /auth required but no tokens/i,
     );
 
-    // Auth required + tokens configured => does NOT throw.
+    // Auth required + tokens but NO origin allowlist => throws (fail closed).
     process.env.COLLAB_TOKENS =
       '{"secretA":{"userId":"u1","displayName":"Ann","color":"#2563eb"}}';
+    assert.throws(
+      () => createApplication({ databasePath: ":memory:" }),
+      /ALLOWED_ORIGINS required/i,
+    );
+
+    // Auth required + tokens + allowlist configured => does NOT throw.
+    process.env.ALLOWED_ORIGINS = "https://app.example";
     const withTokens = createApplication({ databasePath: ":memory:" });
     assert.equal(withTokens.tokens.size, 1);
     withTokens.database.close();
@@ -145,6 +154,7 @@ test("createApplication fails closed when auth is required but no tokens configu
     // Neither flag nor tokens (dev) => does NOT throw, just warns.
     delete process.env.COLLAB_REQUIRE_AUTH;
     delete process.env.COLLAB_TOKENS;
+    delete process.env.ALLOWED_ORIGINS;
     const devMode = createApplication({ databasePath: ":memory:" });
     assert.equal(devMode.tokens.size, 0);
     devMode.database.close();

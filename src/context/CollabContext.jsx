@@ -37,6 +37,10 @@ export const CollabContext = createContext(null);
 
 export default function CollabContextProvider({ children }) {
   const identityRef = useRef(getIdentity());
+  // The authoritative clientId is assigned by the server and delivered in the
+  // JOINED message. It — not the local random identity — is what we put on the
+  // wire and compare against for lock/operation ownership.
+  const wireClientIdRef = useRef(null);
   const socketRef = useRef(null);
   const reconnectRef = useRef(null);
   const reconnectAttemptsRef = useRef(0);
@@ -66,6 +70,8 @@ export default function CollabContextProvider({ children }) {
     }
     if (message.type === MESSAGE_TYPES.JOINED) {
       versionRef.current = message.version;
+      // Adopt the server-assigned clientId as our wire identity.
+      wireClientIdRef.current = message.clientId ?? identityRef.current.clientId;
       setConnectionState(CONNECTION_STATE.CONNECTED);
       reconnectAttemptsRef.current = 0;
       return;
@@ -89,7 +95,7 @@ export default function CollabContextProvider({ children }) {
       if (pending) {
         pending.resolve(message);
         pendingRef.current.delete(message.operationId);
-      } else if (message.clientId !== identityRef.current.clientId) {
+      } else if (message.clientId !== wireClientIdRef.current) {
         sessionRef.current?.onSnapshot?.({
           ...message.operation.payload,
           version: message.version,
@@ -110,7 +116,7 @@ export default function CollabContextProvider({ children }) {
         const current = nextLocks[tableId];
         if (
           !current ||
-          current.clientId !== identityRef.current.clientId ||
+          current.clientId !== wireClientIdRef.current ||
           current.token !== held.token
         ) {
           heldLocksRef.current.delete(tableId);
@@ -136,7 +142,7 @@ export default function CollabContextProvider({ children }) {
     }
     if (
       message.type === MESSAGE_TYPES.OPERATION_PREVIEW &&
-      message.clientId !== identityRef.current.clientId
+      message.clientId !== wireClientIdRef.current
     ) {
       sessionRef.current?.onDelta?.(message.operation);
       return;
@@ -158,6 +164,8 @@ export default function CollabContextProvider({ children }) {
       if (!session || socketRef.current?.readyState === WebSocket.OPEN) return;
       setConnectionState(CONNECTION_STATE.CONNECTING);
       const scheme = window.location.protocol === "https:" ? "wss:" : "ws:";
+      // The auth token is passed as a query-string param (the approved v1 WS
+      // token transport). Operators MUST keep it out of proxy access logs.
       const token = localStorage.getItem("drawdb-collab-token");
       const base = `${scheme}//${window.location.host}/ws/diagrams/${encodeURIComponent(session.diagramId)}`;
       const wsUrl = token ? `${base}?token=${encodeURIComponent(token)}` : base;
@@ -250,7 +258,7 @@ export default function CollabContextProvider({ children }) {
         JSON.stringify({
           type: MESSAGE_TYPES.OPERATION,
           diagramId: session.diagramId,
-          clientId: identityRef.current.clientId,
+          clientId: wireClientIdRef.current,
           operationId,
           baseVersion: versionRef.current,
           operation: { type: "snapshot.replace", payload: { name, document } },
@@ -429,13 +437,13 @@ export default function CollabContextProvider({ children }) {
   const isTableLockedByOther = useCallback(
     (tableId) => {
       const lock = tableLocks[tableId];
-      return Boolean(lock && lock.clientId !== identityRef.current.clientId);
+      return Boolean(lock && lock.clientId !== wireClientIdRef.current);
     },
     [tableLocks],
   );
 
   const hasTableLock = useCallback(
-    (tableId) => tableLocks[tableId]?.clientId === identityRef.current.clientId,
+    (tableId) => tableLocks[tableId]?.clientId === wireClientIdRef.current,
     [tableLocks],
   );
 

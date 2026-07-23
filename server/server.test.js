@@ -177,6 +177,8 @@ test("WebSocket table locks reject concurrent edits", async (t) => {
     application.database.close();
   });
 
+  // The server assigns the authoritative clientId in the JOINED payload; the
+  // participant.clientId we send is only a display hint in dev mode.
   const join = async (socket, clientId) => {
     const joined = waitForMessage(
       socket,
@@ -190,10 +192,10 @@ test("WebSocket table locks reject concurrent edits", async (t) => {
         participant: { clientId, displayName: clientId, color: "#000" },
       }),
     );
-    await joined;
+    return (await joined).clientId;
   };
-  await join(clientA, "client-a");
-  await join(clientB, "client-b");
+  const clientIdA = await join(clientA, "client-a");
+  const clientIdB = await join(clientB, "client-b");
 
   const grantedA = waitForMessage(
     clientA,
@@ -226,7 +228,7 @@ test("WebSocket table locks reject concurrent edits", async (t) => {
       requestId: "request-b",
     }),
   );
-  assert.equal((await deniedB).lock.clientId, "client-a");
+  assert.equal((await deniedB).lock.clientId, clientIdA);
 
   const previewRejected = waitForMessage(
     clientB,
@@ -267,7 +269,7 @@ test("WebSocket table locks reject concurrent edits", async (t) => {
       requestId: "request-b-after-release",
     }),
   );
-  assert.equal((await grantedB).lock.clientId, "client-b");
+  assert.equal((await grantedB).lock.clientId, clientIdB);
 });
 
 test("WS upgrade rejects when tokens are configured but no token is supplied", async (t) => {
@@ -360,6 +362,7 @@ test("WS derives participant identity from the token, ignoring a lying client", 
   );
   t.after(() => socket.close());
 
+  const joined = waitForMessage(socket, (message) => message.type === "joined");
   const presence = waitForMessage(
     socket,
     (message) => message.type === "presence",
@@ -377,12 +380,105 @@ test("WS derives participant identity from the token, ignoring a lying client", 
       },
     }),
   );
+
+  // The JOINED payload carries the server-assigned clientId — never the lie.
+  const joinedMessage = await joined;
+  assert.equal(joinedMessage.displayName, "Ann");
+  assert.notEqual(joinedMessage.clientId, "attacker");
+  assert.ok(joinedMessage.clientId);
+
   const { participants } = await presence;
   assert.equal(participants.length, 1);
-  // Identity comes from the TOKEN, not the client's lie.
-  assert.equal(participants[0].clientId, "user-ann");
+  // Display identity comes from the TOKEN, not the client's lie.
   assert.equal(participants[0].displayName, "Ann");
   assert.equal(participants[0].color, "#123456");
+  assert.equal(participants[0].userId, "user-ann");
+  // Ownership clientId is server-assigned, NOT the attacker's claim.
+  assert.notEqual(participants[0].clientId, "attacker");
+  assert.equal(participants[0].clientId, joinedMessage.clientId);
+});
+
+test("WS accepts an authenticated operation sent with the server-assigned clientId", async (t) => {
+  const restoreEnv = saveCollabEnv();
+  t.after(restoreEnv);
+  delete process.env.ALLOWED_ORIGINS;
+  process.env.COLLAB_TOKENS =
+    '{"tok-ann":{"userId":"user-ann","displayName":"Ann","color":"#123456"}}';
+
+  const application = createApplication({ databasePath: ":memory:" });
+  application.store.create({
+    id: "diagram-save",
+    name: "Save test",
+    document: { tables: [] },
+  });
+  await new Promise((resolve) =>
+    application.server.listen(0, "127.0.0.1", resolve),
+  );
+  const { port } = application.server.address();
+  t.after(() => {
+    application.websocket.close();
+    application.server.close();
+    application.database.close();
+  });
+
+  const socket = await openSocket(
+    `ws://127.0.0.1:${port}/ws/diagrams/diagram-save?token=tok-ann`,
+  );
+  t.after(() => socket.close());
+
+  const joined = waitForMessage(socket, (message) => message.type === "joined");
+  socket.send(
+    JSON.stringify({
+      type: "join",
+      diagramId: "diagram-save",
+      lastVersion: 1,
+      // A real client sends its own random clientId here; the server ignores it.
+      participant: {
+        clientId: "local-nanoid",
+        displayName: "Ann",
+        color: "#123456",
+      },
+    }),
+  );
+  const clientId = (await joined).clientId;
+  assert.ok(clientId);
+
+  // The client must use the SERVER-ASSIGNED clientId on operations. Using it
+  // must be ACCEPTED (this is the I-3 regression: a mismatched clientId used
+  // to be rejected as "Invalid operation", breaking every authenticated save).
+  const applied = waitForMessage(
+    socket,
+    (message) => message.type === "operation_applied",
+  );
+  const rejected = waitForMessage(
+    socket,
+    (message) =>
+      message.type === "error" && message.message === "Invalid operation",
+  );
+  socket.send(
+    JSON.stringify({
+      type: "operation",
+      diagramId: "diagram-save",
+      clientId,
+      operationId: "op-authed-1",
+      baseVersion: 1,
+      operation: {
+        type: "snapshot.replace",
+        payload: { name: "Renamed", document: { tables: [{ id: 0 }] } },
+      },
+    }),
+  );
+  const appliedMessage = await Promise.race([
+    applied,
+    rejected.then((m) => {
+      throw new Error(`Operation was rejected: ${m.message}`);
+    }),
+  ]);
+  assert.equal(appliedMessage.clientId, clientId);
+  assert.equal(appliedMessage.version, 2);
+  assert.equal(appliedMessage.operation.payload.name, "Renamed");
+  // And it persisted authoritatively.
+  assert.equal(application.store.get("diagram-save").name, "Renamed");
 });
 
 test("WS dev mode (no tokens) preserves client-supplied participant identity", async (t) => {
@@ -413,6 +509,7 @@ test("WS dev mode (no tokens) preserves client-supplied participant identity", a
   );
   t.after(() => socket.close());
 
+  const joined = waitForMessage(socket, (message) => message.type === "joined");
   const presence = waitForMessage(
     socket,
     (message) => message.type === "presence",
@@ -429,8 +526,15 @@ test("WS dev mode (no tokens) preserves client-supplied participant identity", a
       },
     }),
   );
+  // Dev mode preserves the client-supplied DISPLAY identity, but ownership
+  // clientId is still server-assigned (delivered via JOINED) so the wire
+  // clientId is always authoritative in both modes.
+  const clientId = (await joined).clientId;
+  assert.ok(clientId);
   const { participants } = await presence;
   assert.equal(participants.length, 1);
-  assert.equal(participants[0].clientId, "client-dev");
   assert.equal(participants[0].displayName, "Dev User");
+  assert.equal(participants[0].color, "#abcdef");
+  assert.equal(participants[0].clientId, clientId);
+  assert.notEqual(participants[0].clientId, "client-dev");
 });

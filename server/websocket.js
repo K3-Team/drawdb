@@ -1,3 +1,4 @@
+import crypto from "node:crypto";
 import { WebSocketServer, WebSocket } from "ws";
 import {
   CLIENT_ID_PATTERN,
@@ -60,15 +61,15 @@ export function attachCollaborationServer(
     const url = new URL(request.url, "http://localhost");
     const match = url.pathname.match(/^\/ws\/diagrams\/([^/]+)$/);
     const diagramId = match?.[1];
-    if (
-      !diagramId ||
-      !DIAGRAM_ID_PATTERN.test(diagramId) ||
-      !store.get(diagramId)
-    ) {
+    // URL shape validation only — this leaks nothing about which diagrams
+    // exist (a malformed path is rejected regardless of auth).
+    if (!diagramId || !DIAGRAM_ID_PATTERN.test(diagramId)) {
       socket.write("HTTP/1.1 404 Not Found\r\n\r\n");
       socket.destroy();
       return;
     }
+    // Origin allowlist first, then token auth — both must pass before we
+    // reveal anything else about the target diagram.
     if (!isOriginAllowed(allowedOrigins, request.headers.origin)) {
       socket.write("HTTP/1.1 403 Forbidden\r\n\r\n");
       socket.destroy();
@@ -76,6 +77,8 @@ export function attachCollaborationServer(
     }
     let identity = null;
     if (tokens && tokens.size > 0) {
+      // Token is carried in the ?token= query param (approved v1 transport);
+      // operators MUST keep it out of proxy access logs.
       const token = url.searchParams.get("token");
       identity = authenticateToken(tokens, token);
       if (!identity) {
@@ -83,6 +86,13 @@ export function attachCollaborationServer(
         socket.destroy();
         return;
       }
+    }
+    // Existence check runs AFTER auth so unauthenticated/wrong-origin callers
+    // cannot probe which diagram ids exist.
+    if (!store.get(diagramId)) {
+      socket.write("HTTP/1.1 404 Not Found\r\n\r\n");
+      socket.destroy();
+      return;
     }
     wss.handleUpgrade(request, socket, head, (ws) => {
       ws.diagramId = diagramId;
@@ -130,18 +140,28 @@ export function attachCollaborationServer(
           });
           return;
         }
+        // Ownership (lock/operation clientId) is always a SERVER-assigned id,
+        // never anything the client chose. Display identity comes from the
+        // token when authenticated, or the client's claim in dev/open mode.
+        socket.sessionId = crypto.randomUUID();
         socket.participant = socket.identity
           ? {
-              clientId: socket.identity.userId,
+              clientId: socket.sessionId,
+              userId: socket.identity.userId,
               displayName: socket.identity.displayName,
               color: socket.identity.color,
             }
-          : message.participant; // dev/open mode (no tokens) falls back to client-supplied
+          : { ...message.participant, clientId: socket.sessionId };
         const diagram = store.get(diagramId);
+        // Tell the client its authoritative, server-assigned identity so it
+        // uses this clientId on the wire and for all self-comparisons.
         send(socket, {
           type: MESSAGE_TYPES.JOINED,
           diagramId,
           version: diagram.version,
+          clientId: socket.participant.clientId,
+          displayName: socket.participant.displayName,
+          color: socket.participant.color,
         });
         if (message.lastVersion !== diagram.version) {
           send(socket, { type: MESSAGE_TYPES.SNAPSHOT, diagramId, ...diagram });
