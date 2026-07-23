@@ -410,6 +410,7 @@ export default function WorkSpace({ forcedDiagramId } = {}) {
         }
       } catch (e) {
         console.log(e);
+        Toast.error(t("oops_smth_went_wrong"));
         setSaveState(State.FAILED_TO_LOAD);
       }
     };
