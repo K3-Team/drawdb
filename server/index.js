@@ -116,10 +116,30 @@ export function createApplication({ databasePath, staticPath } = {}) {
 
   const assets = staticPath || path.resolve(__dirname, "../dist");
   if (fs.existsSync(assets)) {
-    app.use(express.static(assets));
-    app.get("*splat", (_req, res) =>
-      res.sendFile(path.join(assets, "index.html")),
+    app.use(
+      express.static(assets, {
+        setHeaders: (res, filePath) => {
+          // index.html is the entry point and references content-hashed asset
+          // filenames. It MUST always be revalidated so clients pick up a new
+          // build immediately instead of loading a stale bundle. The hashed
+          // files under /assets are immutable (a new build emits new names), so
+          // they can be cached indefinitely.
+          if (filePath.endsWith("index.html")) {
+            res.setHeader("Cache-Control", "no-cache");
+          } else if (filePath.includes(`${path.sep}assets${path.sep}`)) {
+            res.setHeader(
+              "Cache-Control",
+              "public, max-age=31536000, immutable",
+            );
+          }
+        },
+      }),
     );
+    app.get("*splat", (_req, res) => {
+      // The SPA catch-all also returns index.html — same no-cache rule.
+      res.setHeader("Cache-Control", "no-cache");
+      res.sendFile(path.join(assets, "index.html"));
+    });
   }
   app.use((error, _req, res, next) => {
     void next;
