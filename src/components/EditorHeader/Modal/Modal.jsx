@@ -10,7 +10,6 @@ import {
   useAreas,
   useDiagram,
   useEnums,
-  useNavigateWithParams,
   useNotes,
   useSettings,
   useTransform,
@@ -79,7 +78,6 @@ export default function Modal({
   const [selectedTemplateId, setSelectedTemplateId] = useState(-1);
   const [selectedDiagramId, setSelectedDiagramId] = useState(0);
   const [saveAsTitle, setSaveAsTitle] = useState(title);
-  const navigate = useNavigateWithParams();
 
   useEffect(() => {
     if (modal === MODAL.SAVEAS) setSaveAsTitle(title);
@@ -204,7 +202,12 @@ export default function Modal({
         return;
       case MODAL.OPEN:
         if (!selectedDiagramId) return;
-        navigate(`/editor/diagrams/${selectedDiagramId}`, "_blank");
+        // Open the chosen diagram in a new tab so the current one stays put.
+        window.open(
+          `/editor/diagrams/${selectedDiagramId}${window.location.search}`,
+          "_blank",
+          "noopener,noreferrer",
+        );
         setModal(MODAL.NONE);
         return;
       case MODAL.RENAME:
