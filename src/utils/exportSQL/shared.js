@@ -1,6 +1,6 @@
 import { isFunction, isKeyword, getRelationshipFields } from "../utils";
 
-import { safeConstraint } from "./identifiers";
+import { safeConstraint, assertSafeDefault } from "./identifiers";
 import { DB } from "../../data/constants";
 import { dbToTypes } from "../../data/datatypes";
 
@@ -16,12 +16,16 @@ export function getFkColumnNames(relationship, startTable, endTable) {
 }
 
 export function parseDefault(field, database = DB.GENERIC) {
+  // These three branches interpolate the value into the script unquoted, so
+  // the value has to carry its own shape guarantee -- anchoring isFunction
+  // only constrained the outside of the call, not what sits between the
+  // parentheses.
   if (
     isFunction(field.default) ||
     isKeyword(field.default) ||
     !dbToTypes[database][field.type].hasQuotes
   ) {
-    return field.default;
+    return assertSafeDefault(field.default);
   }
 
   return `'${escapeQuotes(field.default)}'`;

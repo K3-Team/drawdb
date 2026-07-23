@@ -236,6 +236,9 @@ describe("CHECK expressions that can break the statement are refused", () => {
     ["hash line comment", "1=1), evil_col INT DEFAULT 1 # "],
     // Needs no blocked token at all: it just re-balances the CHECK( group.
     ["unbalanced parentheses", "1=1), evil_col INT, CHECK(1=1"],
+    // Balanced and token-free: GO splits the MSSQL script into batches, and
+    // the DROP batch succeeds even though the batches around it fail.
+    ["GO batch separator", "1=1\nGO\nDROP TABLE users\nGO\n1=1"],
   ];
 
   // An exporter only emits CHECK for types whose metadata sets hasCheck, and
@@ -263,6 +266,40 @@ describe("CHECK expressions that can break the statement are refused", () => {
     const d = diagram(DB.POSTGRES);
     d.tables[0].fields[0].check = "(age > 0) AND (age < 200)";
     expect(exportSQL(d)).toContain("CHECK((age > 0) AND (age < 200))");
+  });
+});
+
+// parseDefault interpolates the value unquoted on three branches, so a
+// hostile default reaches the script without ever touching an identifier.
+describe("DEFAULT values that can break the statement are refused", () => {
+  it("refuses SQL smuggled inside a function default", () => {
+    const d = diagram(DB.MYSQL);
+    d.tables[0].fields[0].default = "f(;DROP TABLE users;SELECT 1 --)";
+    expect(() => exportSQL(d)).toThrow(/function DEFAULT/);
+  });
+
+  it("refuses a numeric default that opens another column", () => {
+    const d = diagram(DB.MYSQL);
+    d.tables[0].fields[0].type = "INT";
+    d.tables[0].fields[0].default = "1, evil INT DEFAULT 2";
+    expect(() => exportSQL(d)).toThrow(/unquoted DEFAULT/);
+  });
+
+  it("still emits legitimate function and literal defaults", () => {
+    const d = diagram(DB.MYSQL);
+    d.tables[0].fields[0].default = "now()";
+    expect(exportSQL(d)).toContain("DEFAULT now()");
+
+    const n = diagram(DB.MYSQL);
+    n.tables[0].fields[0].type = "INT";
+    n.tables[0].fields[0].default = "-1";
+    expect(exportSQL(n)).toContain("DEFAULT -1");
+  });
+
+  it("still quotes an ordinary string default", () => {
+    const d = diagram(DB.MYSQL);
+    d.tables[0].fields[0].default = "hello world";
+    expect(exportSQL(d)).toContain("DEFAULT 'hello world'");
   });
 });
 

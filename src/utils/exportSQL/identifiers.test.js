@@ -4,6 +4,7 @@ import {
   quoterFor,
   safeConstraint,
   assertNoStatementBreak,
+  assertSafeDefault,
 } from "./identifiers";
 import { DB, Constraint } from "../../data/constants";
 
@@ -85,6 +86,13 @@ describe("assertNoStatementBreak", () => {
     ).toThrow();
   });
 
+  it("rejects a newline, which lets MSSQL start a new GO batch", () => {
+    expect(() =>
+      assertNoStatementBreak("1=1\nGO\nDROP TABLE users\nGO\n1=1"),
+    ).toThrow();
+    expect(() => assertNoStatementBreak("1=1\r\nGO\r\n1=1")).toThrow();
+  });
+
   it("rejects unbalanced parentheses, which need no blocked token", () => {
     // Closes CHECK( early and re-opens it, so the output stays syntactically
     // valid while smuggling in an extra column.
@@ -114,5 +122,46 @@ describe("assertNoStatementBreak", () => {
     // rather than a fixed budget that the wording would keep invalidating.
     expect(message).not.toContain(input);
     expect(message.length).toBeLessThan(input.length);
+  });
+});
+
+describe("assertSafeDefault", () => {
+  it("allows legitimate function defaults", () => {
+    for (const d of [
+      "now()",
+      "CURRENT_TIMESTAMP()",
+      "nextval('seq')",
+      "now(6)",
+      "gen_random_uuid()",
+      "to_date('2020-01-01','YYYY-MM-DD')",
+    ]) {
+      expect(assertSafeDefault(d)).toBe(d);
+    }
+  });
+
+  it("allows keywords and bare literals", () => {
+    for (const d of ["NULL", "TRUE", "CURRENT_TIMESTAMP", "0", "-1", "3.14"]) {
+      expect(assertSafeDefault(d)).toBe(d);
+    }
+  });
+
+  it("rejects SQL smuggled inside a function call's parentheses", () => {
+    // Anchoring isFunction fixed the outer shape; [^)]* still allowed this.
+    expect(() => assertSafeDefault("f(;DROP TABLE users;SELECT 1 --)")).toThrow(
+      /function DEFAULT/,
+    );
+  });
+
+  it("rejects a bare default that starts another column definition", () => {
+    // Reached via the !hasQuotes branch on numeric types: no function shape
+    // and no blocked token, just a comma.
+    expect(() => assertSafeDefault("1, evil INT DEFAULT 2")).toThrow(
+      /unquoted DEFAULT/,
+    );
+  });
+
+  it("rejects comment introducers in either position", () => {
+    expect(() => assertSafeDefault("f('a' -- )")).toThrow();
+    expect(() => assertSafeDefault("1--2")).toThrow();
   });
 });
