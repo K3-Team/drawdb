@@ -67,10 +67,32 @@ describe("assertNoStatementBreak", () => {
     expect(assertNoStatementBreak("age > 0")).toBe("age > 0");
   });
 
+  it("allows balanced parentheses and function calls", () => {
+    expect(assertNoStatementBreak("(a > 0) AND (b < length(c))")).toBe(
+      "(a > 0) AND (b < length(c))",
+    );
+  });
+
   it("rejects statement terminators and comment introducers", () => {
     expect(() => assertNoStatementBreak("1=1; DROP TABLE t")).toThrow();
     expect(() => assertNoStatementBreak("1=1 -- x")).toThrow();
     expect(() => assertNoStatementBreak("1=1 /* x */")).toThrow();
+  });
+
+  it("rejects '#', a MySQL line comment that can hide the closing paren", () => {
+    expect(() =>
+      assertNoStatementBreak("1=1), evil_col INT DEFAULT 1 # "),
+    ).toThrow();
+  });
+
+  it("rejects unbalanced parentheses, which need no blocked token", () => {
+    // Closes CHECK( early and re-opens it, so the output stays syntactically
+    // valid while smuggling in an extra column.
+    expect(() =>
+      assertNoStatementBreak("1=1), evil_col INT, CHECK(1=1"),
+    ).toThrow();
+    expect(() => assertNoStatementBreak("1=1)")).toThrow();
+    expect(() => assertNoStatementBreak("(1=1")).toThrow();
   });
 
   it("names the offending expression so the user can fix it", () => {
@@ -80,13 +102,17 @@ describe("assertNoStatementBreak", () => {
   });
 
   it("truncates a pathologically long expression", () => {
+    const input = ";".padEnd(500, "x");
     let message = "";
     try {
-      assertNoStatementBreak(";".padEnd(500, "x"));
+      assertNoStatementBreak(input);
     } catch (e) {
       message = e.message;
     }
     expect(message).toContain("…");
-    expect(message.length).toBeLessThan(200);
+    // Only the echoed expression is capped, so compare against the input
+    // rather than a fixed budget that the wording would keep invalidating.
+    expect(message).not.toContain(input);
+    expect(message.length).toBeLessThan(input.length);
   });
 });

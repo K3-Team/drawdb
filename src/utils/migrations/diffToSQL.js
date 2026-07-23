@@ -173,7 +173,7 @@ function toTable(table, db) {
     extra = [t, cols].filter(Boolean).join("\n");
   } else if (db === DB.MSSQL && table.comment?.trim()) {
     extra = `
-EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'${escapeQuotes(table.comment).replace(/'/g, "''")}',
+EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'${mssqlLiteral(table.comment)}',
   @level0type=N'SCHEMA',@level0name=N'dbo', @level1type=N'TABLE',@level1name=N'${mssqlLiteral(table.name)}';
 GO`;
   }
@@ -455,10 +455,10 @@ export const generateMigrationSQL = (
                   );
                 } else if (database === DB.MSSQL) {
                   up.push(
-                    `EXEC sp_addextendedproperty @name=N'MS_Description', @value=N'${escapeQuotes(String(change.to ?? "")).replace(/'/g, "''")}', @level0type=N'SCHEMA',@level0name=N'dbo', @level1type=N'TABLE',@level1name=N'${mssqlLiteral(name)}', @level2type=N'COLUMN',@level2name=N'${mssqlLiteral(columnName)}';`,
+                    `EXEC sp_addextendedproperty @name=N'MS_Description', @value=N'${mssqlLiteral(change.to)}', @level0type=N'SCHEMA',@level0name=N'dbo', @level1type=N'TABLE',@level1name=N'${mssqlLiteral(name)}', @level2type=N'COLUMN',@level2name=N'${mssqlLiteral(columnName)}';`,
                   );
                   down.push(
-                    `EXEC sp_addextendedproperty @name=N'MS_Description', @value=N'${escapeQuotes(String(change.from ?? "")).replace(/'/g, "''")}', @level0type=N'SCHEMA',@level0name=N'dbo', @level1type=N'TABLE',@level1name=N'${mssqlLiteral(name)}', @level2type=N'COLUMN',@level2name=N'${mssqlLiteral(columnName)}';`,
+                    `EXEC sp_addextendedproperty @name=N'MS_Description', @value=N'${mssqlLiteral(change.from)}', @level0type=N'SCHEMA',@level0name=N'dbo', @level1type=N'TABLE',@level1name=N'${mssqlLiteral(name)}', @level2type=N'COLUMN',@level2name=N'${mssqlLiteral(columnName)}';`,
                   );
                 } else if (database === DB.SQLITE) {
                   up.push(
@@ -735,10 +735,10 @@ export const generateMigrationSQL = (
               );
             } else if (database === DB.MSSQL) {
               up.push(
-                `EXEC sp_addextendedproperty @name=N'MS_Description', @value=N'${escapeQuotes(String(change.to ?? "")).replace(/'/g, "''")}', @level0type=N'SCHEMA',@level0name=N'dbo', @level1type=N'TABLE',@level1name=N'${mssqlLiteral(name)}';`,
+                `EXEC sp_addextendedproperty @name=N'MS_Description', @value=N'${mssqlLiteral(change.to)}', @level0type=N'SCHEMA',@level0name=N'dbo', @level1type=N'TABLE',@level1name=N'${mssqlLiteral(name)}';`,
               );
               down.push(
-                `EXEC sp_addextendedproperty @name=N'MS_Description', @value=N'${escapeQuotes(String(change.from ?? "")).replace(/'/g, "''")}', @level0type=N'SCHEMA',@level0name=N'dbo', @level1type=N'TABLE',@level1name=N'${mssqlLiteral(name)}';`,
+                `EXEC sp_addextendedproperty @name=N'MS_Description', @value=N'${mssqlLiteral(change.from)}', @level0type=N'SCHEMA',@level0name=N'dbo', @level1type=N'TABLE',@level1name=N'${mssqlLiteral(name)}';`,
               );
             } else if (database === DB.SQLITE) {
               up.push(

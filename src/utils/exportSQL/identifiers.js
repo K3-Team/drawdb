@@ -38,12 +38,35 @@ export function safeConstraint(value) {
     : "NO ACTION";
 }
 
-const STATEMENT_BREAK_RE = /;|--|\/\*/;
+// '#' is a line comment in MySQL/MariaDB, so it can hide a trailing ')'.
+const STATEMENT_BREAK_RE = /;|--|#|\/\*/;
 const MAX_REPORTED_LENGTH = 100;
+
+// The expression is emitted as CHECK(<expr>), so escaping that parenthesis
+// group is the real attack primitive: "1=1), evil INT, CHECK(1=1" needs no
+// blocked token at all. Requiring balanced parentheses removes it.
+//
+// LIMITATION: this counts parentheses in the raw string, so a parenthesis
+// inside a quoted SQL literal (CHECK(name <> ')')) is counted too and such an
+// expression is rejected. That is deliberate — tracking quote state would let
+// an attacker use an unbalanced quote to hide a ')' from the scanner, trading
+// a false rejection for a real bypass.
+function hasUnbalancedParens(s) {
+  let depth = 0;
+  for (const ch of s) {
+    if (ch === "(") {
+      depth++;
+    } else if (ch === ")") {
+      depth--;
+      if (depth < 0) return true;
+    }
+  }
+  return depth !== 0;
+}
 
 export function assertNoStatementBreak(expr) {
   const s = expr == null ? "" : String(expr);
-  if (STATEMENT_BREAK_RE.test(s)) {
+  if (STATEMENT_BREAK_RE.test(s) || hasUnbalancedParens(s)) {
     // The expression is attacker-controlled (it can arrive in an imported
     // .ddb), so bound how much of it is echoed back into the UI.
     const shown =
@@ -51,7 +74,8 @@ export function assertNoStatementBreak(expr) {
         ? `${s.slice(0, MAX_REPORTED_LENGTH)}…`
         : s;
     throw new Error(
-      `CHECK expression may not contain ';', '--' or '/*'. Refusing to generate SQL for: ${shown}`,
+      "CHECK expression must have balanced parentheses and may not contain " +
+        `';', '--', '#' or '/*'. Refusing to generate SQL for: ${shown}`,
     );
   }
   return s;

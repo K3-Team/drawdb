@@ -87,6 +87,7 @@ export default function Migration({
       } catch (error) {
         // The generator refuses diagrams whose CHECK expressions could break
         // out of the statement; surface that instead of showing empty SQL.
+        console.error(error);
         Toast.error(error.message);
         setMigrationSQL({ up: "", down: "" });
       }

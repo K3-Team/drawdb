@@ -27,6 +27,7 @@ const en = {
     are_you_sure_delete_diagram:
       "Are you sure you want to delete this diagram? This operation is irreversible.",
     oops_smth_went_wrong: "Oops! Something went wrong.",
+    export_failed: "Export failed: {{message}}",
     import_diagram: "Import diagram",
     import_from_source: "Import from SQL",
     export_as: "Export as",

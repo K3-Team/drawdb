@@ -135,11 +135,15 @@ describe("generateMigrationSQL neutralises a hostile identifier", () => {
 describe("generateMigrationSQL escapes MSSQL string literals", () => {
   const QUOTED = "o'brien'; DROP TABLE t; --";
   const ESCAPED = QUOTED.split("'").join("''");
+  // The @value= argument needs an apostrophe too: it used to be escaped twice
+  // (escapeQuotes already doubles), turning o'brien into o''''brien.
+  const COMMENT = "o'brien's note";
+  const COMMENT_ESCAPED = COMMENT.split("'").join("''");
 
   const table = {
     id: 1,
     name: QUOTED,
-    comment: "note",
+    comment: COMMENT,
     inherits: [],
     uniqueConstraints: [],
     indices: [],
@@ -155,7 +159,7 @@ describe("generateMigrationSQL escapes MSSQL string literals", () => {
         increment: false,
         default: "",
         check: "",
-        comment: "note",
+        comment: COMMENT,
         values: [],
       },
     ],
@@ -166,21 +170,28 @@ describe("generateMigrationSQL escapes MSSQL string literals", () => {
   const key = `tables[id=1,name=${QUOTED}]`;
   const fieldKey = `fields[id=10,name=${QUOTED},type=VARCHAR]`;
 
+  // [hasComment] marks the cases that emit an @value= argument.
   const cases = [
-    ["new table comment", { [key]: { to: table, from: null } }],
-    ["table comment change", { [`${key}#comment`]: { to: "note", from: "" } }],
-    ["table rename", { [`${key}#name`]: { from: QUOTED, to: QUOTED } }],
+    ["new table comment", { [key]: { to: table, from: null } }, true],
+    [
+      "table comment change",
+      { [`${key}#comment`]: { to: COMMENT, from: "" } },
+      true,
+    ],
+    ["table rename", { [`${key}#name`]: { from: QUOTED, to: QUOTED } }, false],
     [
       "column comment change",
-      { [`${key}#${fieldKey}#comment`]: { to: "note", from: "" } },
+      { [`${key}#${fieldKey}#comment`]: { to: COMMENT, from: "" } },
+      true,
     ],
     [
       "column rename",
       { [`${key}#${fieldKey}#name`]: { from: QUOTED, to: QUOTED } },
+      false,
     ],
   ];
 
-  for (const [label, diff] of cases) {
+  for (const [label, diff, hasComment] of cases) {
     it(`${label} cannot close the N'...' literal`, () => {
       const { up } = generateMigrationSQL(diff, DB.MSSQL, {
         from: { tables: [] },
@@ -192,6 +203,12 @@ describe("generateMigrationSQL escapes MSSQL string literals", () => {
       const literals = up.replace(/\[[^\]]*\]/g, "[ident]");
       expect(literals).toContain(ESCAPED);
       expect(literals).not.toContain(QUOTED);
+
+      if (hasComment) {
+        // Doubled exactly once — not quadrupled by a second escape pass.
+        expect(literals).toContain(COMMENT_ESCAPED);
+        expect(literals).not.toContain(COMMENT_ESCAPED.split("'").join("''"));
+      }
     });
   }
 });
@@ -213,9 +230,47 @@ describe("parseDefault quotes a default that only ends in a call", () => {
 });
 
 describe("CHECK expressions that can break the statement are refused", () => {
-  it("throws instead of emitting an injected CHECK", () => {
+  const payloads = [
+    ["statement terminator", "1=1); DROP TABLE t; --"],
+    // '#' is a MySQL/MariaDB line comment, hiding the generated ')'.
+    ["hash line comment", "1=1), evil_col INT DEFAULT 1 # "],
+    // Needs no blocked token at all: it just re-balances the CHECK( group.
+    ["unbalanced parentheses", "1=1), evil_col INT, CHECK(1=1"],
+  ];
+
+  // An exporter only emits CHECK for types whose metadata sets hasCheck, and
+  // Oracle has no VARCHAR (it is VARCHAR2), so pick a checkable type per
+  // dialect -- otherwise the guard is never reached and the test is vacuous.
+  for (const db of Object.keys(CLOSERS)) {
+    const type = db === DB.ORACLESQL ? "VARCHAR2" : "VARCHAR";
+    for (const [label, check] of payloads) {
+      it(`${db} refuses a ${label} payload`, () => {
+        const d = diagram(db);
+        d.tables[0].fields[0].type = type;
+        d.tables[0].fields[0].check = check;
+        expect(() => exportSQL(d)).toThrow(/CHECK expression/);
+      });
+    }
+  }
+
+  it("omits the expression for a type that does not support CHECK", () => {
+    const d = diagram(DB.ORACLESQL);
+    d.tables[0].fields[0].check = "1=1), evil_col INT, CHECK(1=1";
+    expect(exportSQL(d)).not.toContain("evil_col");
+  });
+
+  it("still accepts an ordinary parenthesised expression", () => {
     const d = diagram(DB.POSTGRES);
-    d.tables[0].fields[0].check = "1=1); DROP TABLE t; --";
-    expect(() => exportSQL(d)).toThrow(/CHECK expression/);
+    d.tables[0].fields[0].check = "(age > 0) AND (age < 200)";
+    expect(exportSQL(d)).toContain("CHECK((age > 0) AND (age < 200))");
+  });
+});
+
+describe("non-string enum values export without throwing", () => {
+  it("quotes numeric ENUM values instead of raising a TypeError", () => {
+    const d = diagram(DB.MYSQL);
+    d.tables[0].fields[0].type = "ENUM";
+    d.tables[0].fields[0].values = [1, 2];
+    expect(exportSQL(d)).toContain("ENUM('1', '2')");
   });
 });

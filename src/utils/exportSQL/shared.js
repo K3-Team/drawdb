@@ -27,8 +27,10 @@ export function parseDefault(field, database = DB.GENERIC) {
   return `'${escapeQuotes(field.default)}'`;
 }
 
+// Coerces first: an imported .ddb can hold non-strings (e.g. numeric ENUM
+// values), and a TypeError here surfaces as an opaque "export failed" toast.
 export function escapeQuotes(str) {
-  return str.replace(/[']/g, "'$&");
+  return String(str ?? "").replace(/[']/g, "'$&");
 }
 
 export function exportFieldComment(comment) {
@@ -61,11 +63,9 @@ export function uniqueConstraintClause(table, quote) {
   );
 }
 
-export function getInlineFK(
-  table,
-  obj,
-  q = (s) => `"${String(s).replace(/"/g, '""')}"`,
-) {
+// `q` is required: defaulting to ANSI double quotes would let a future caller
+// silently emit Postgres-style quoting into a MySQL or MSSQL script.
+export function getInlineFK(table, obj, q) {
   let fks = [];
   obj.references.forEach((r) => {
     if (r.startTableId === table.id) {

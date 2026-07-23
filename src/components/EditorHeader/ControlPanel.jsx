@@ -118,21 +118,6 @@ export default function ControlPanel({
     setModal(modalType);
   };
 
-  // Generate first, then open the modal: SQL exporters reject diagrams whose
-  // CHECK expressions could break out of the generated statement, and an empty
-  // modal with no explanation is worse than a toast.
-  const runExport = (generate, extension) => {
-    let src;
-    try {
-      src = generate();
-    } catch (e) {
-      Toast.error(e.message);
-      return;
-    }
-    openExportModal(MODAL.CODE);
-    setExportData((prev) => ({ ...prev, data: src, extension }));
-  };
-
   const [importFrom, setImportFrom] = useState(IMPORT_FROM.JSON);
   const { saveState, setSaveState } = useSaveState();
   const { layout, setLayout } = useLayout();
@@ -164,6 +149,22 @@ export default function ControlPanel({
   const isTemplate = useMatch("/editor/templates/:id");
   const navigate = useNavigateWithParams();
   const extensions = useExtensions();
+
+  // Generate first, then open the modal: SQL exporters reject diagrams whose
+  // CHECK expressions could break out of the generated statement, and an empty
+  // modal with no explanation is worse than a toast.
+  const runExport = (generate, extension) => {
+    let src;
+    try {
+      src = generate();
+    } catch (e) {
+      console.error(e);
+      Toast.error(t("export_failed", { message: e.message }));
+      return;
+    }
+    openExportModal(MODAL.CODE);
+    setExportData((prev) => ({ ...prev, data: src, extension }));
+  };
 
   const undo = () => {
     if (undoStack.length === 0) return;
