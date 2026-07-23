@@ -11,6 +11,7 @@ import {
 } from "./protocol.js";
 import { createTableLockManager } from "./tableLocks.js";
 import { authenticateToken, isOriginAllowed } from "./auth.js";
+import { isDiagramDocument } from "./validateDocument.js";
 
 const MAX_MESSAGE_BYTES = 2 * 1024 * 1024;
 
@@ -196,6 +197,15 @@ export function attachCollaborationServer(
           send(socket, {
             type: MESSAGE_TYPES.ERROR,
             message: "Invalid operation",
+          });
+          return;
+        }
+        // Structural gate: reject documents that don't look like a diagram
+        // BEFORE persisting or rebroadcasting to any peer.
+        if (!isDiagramDocument(message.operation.payload.document)) {
+          send(socket, {
+            type: MESSAGE_TYPES.ERROR,
+            message: "Invalid diagram document",
           });
           return;
         }

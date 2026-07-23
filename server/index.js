@@ -7,6 +7,7 @@ import express from "express";
 import { loadTokens, requireAuth, loadAllowedOrigins } from "./auth.js";
 import { createDiagramStore, openDatabase } from "./database.js";
 import { DIAGRAM_ID_PATTERN, isPlainObject } from "./protocol.js";
+import { isDiagramDocument } from "./validateDocument.js";
 import { attachCollaborationServer } from "./websocket.js";
 
 /* global process */
@@ -58,7 +59,7 @@ export function createApplication({ databasePath, staticPath } = {}) {
     typeof body.name === "string" &&
     body.name.trim().length > 0 &&
     body.name.length <= 200 &&
-    isPlainObject(body.document);
+    isDiagramDocument(body.document);
 
   app.get("/api/diagrams", (_req, res) => res.json({ diagrams: store.list() }));
   app.post("/api/diagrams", (req, res, next) => {

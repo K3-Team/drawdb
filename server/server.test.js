@@ -5,6 +5,7 @@ import { createDiagramStore, openDatabase } from "./database.js";
 import { createApplication } from "./index.js";
 import { isValidOperationPreview } from "./protocol.js";
 import { createTableLockManager } from "./tableLocks.js";
+import { isDiagramDocument } from "./validateDocument.js";
 
 /* global process */
 
@@ -45,6 +46,31 @@ function saveCollabEnv() {
     }
   };
 }
+
+test("isDiagramDocument accepts a well-formed diagram and rejects malformed ones", () => {
+  assert.equal(
+    isDiagramDocument({
+      tables: [],
+      relationships: [],
+      notes: [],
+      subjectAreas: [],
+    }),
+    true,
+  );
+  assert.equal(
+    isDiagramDocument({
+      tables: "nope",
+      relationships: [],
+      notes: [],
+      subjectAreas: [],
+    }),
+    false,
+  );
+  assert.equal(isDiagramDocument({ tables: [] }), false); // missing required arrays
+  assert.equal(isDiagramDocument(null), false);
+  assert.equal(isDiagramDocument("string"), false);
+  assert.equal(isDiagramDocument([]), false);
+});
 
 test("diagram persistence enforces optimistic versions and operation IDs", () => {
   const database = openDatabase(":memory:");
@@ -517,7 +543,15 @@ test("WS accepts an authenticated operation sent with the server-assigned client
       baseVersion: 1,
       operation: {
         type: "snapshot.replace",
-        payload: { name: "Renamed", document: { tables: [{ id: 0 }] } },
+        payload: {
+          name: "Renamed",
+          document: {
+            tables: [{ id: 0 }],
+            relationships: [],
+            notes: [],
+            subjectAreas: [],
+          },
+        },
       },
     }),
   );
@@ -532,6 +566,108 @@ test("WS accepts an authenticated operation sent with the server-assigned client
   assert.equal(appliedMessage.operation.payload.name, "Renamed");
   // And it persisted authoritatively.
   assert.equal(application.store.get("diagram-save").name, "Renamed");
+});
+
+test("WS rejects a structurally malformed document: no persist, no rebroadcast", async (t) => {
+  const restoreEnv = saveCollabEnv();
+  t.after(restoreEnv);
+  delete process.env.ALLOWED_ORIGINS;
+  process.env.COLLAB_TOKENS =
+    '{"tok-ann":{"userId":"user-ann","displayName":"Ann","color":"#123456"},"tok-bob":{"userId":"user-bob","displayName":"Bob","color":"#654321"}}';
+
+  const application = createApplication({ databasePath: ":memory:" });
+  application.store.create({
+    id: "diagram-hostile",
+    name: "Hostile test",
+    document: { tables: [] },
+  });
+  await new Promise((resolve) =>
+    application.server.listen(0, "127.0.0.1", resolve),
+  );
+  const { port } = application.server.address();
+  t.after(() => {
+    application.websocket.close();
+    application.server.close();
+    application.database.close();
+  });
+
+  const clientA = await openSocket(
+    `ws://127.0.0.1:${port}/ws/diagrams/diagram-hostile?token=tok-ann`,
+  );
+  const clientB = await openSocket(
+    `ws://127.0.0.1:${port}/ws/diagrams/diagram-hostile?token=tok-bob`,
+  );
+  t.after(() => {
+    clientA.close();
+    clientB.close();
+  });
+
+  const join = async (socket, clientId) => {
+    const joined = waitForMessage(
+      socket,
+      (message) => message.type === "joined",
+    );
+    socket.send(
+      JSON.stringify({
+        type: "join",
+        diagramId: "diagram-hostile",
+        lastVersion: 1,
+        participant: { clientId, displayName: clientId, color: "#000" },
+      }),
+    );
+    return (await joined).clientId;
+  };
+  const clientIdA = await join(clientA, "client-a");
+  await join(clientB, "client-b");
+
+  // B must never see a hostile document rebroadcast as operation_applied.
+  let bReceivedApplied = false;
+  const onBMessage = (raw) => {
+    const message = JSON.parse(raw.toString());
+    if (message.type === "operation_applied") bReceivedApplied = true;
+  };
+  clientB.on("message", onBMessage);
+  t.after(() => clientB.off("message", onBMessage));
+
+  const rejected = waitForMessage(
+    clientA,
+    (message) => message.type === "error",
+  );
+  const applied = waitForMessage(
+    clientA,
+    (message) => message.type === "operation_applied",
+  );
+  clientA.send(
+    JSON.stringify({
+      type: "operation",
+      diagramId: "diagram-hostile",
+      clientId: clientIdA,
+      operationId: "op-hostile-1",
+      baseVersion: 1,
+      operation: {
+        type: "snapshot.replace",
+        payload: { name: "Hijacked", document: { tables: "evil" } },
+      },
+    }),
+  );
+
+  // The sender gets an error, never operation_applied, for the hostile doc.
+  const errorMessage = await Promise.race([
+    rejected,
+    applied.then(() => {
+      throw new Error("Hostile document was accepted as operation_applied");
+    }),
+  ]);
+  assert.equal(errorMessage.type, "error");
+
+  // Give any (incorrect) broadcast a moment to arrive before asserting absence.
+  await new Promise((resolve) => setTimeout(resolve, 100));
+  assert.equal(bReceivedApplied, false);
+
+  // Nothing was persisted: version and name are unchanged.
+  const stored = application.store.get("diagram-hostile");
+  assert.equal(stored.version, 1);
+  assert.equal(stored.name, "Hostile test");
 });
 
 test("WS dev mode (no tokens) preserves client-supplied participant identity", async (t) => {
