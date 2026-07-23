@@ -791,3 +791,292 @@ test("DELETE /api/diagrams/:id requires auth: 401 without a token, 204 with the 
   assert.equal(authenticated.status, 204);
   assert.equal(application.store.get("diagram-delete-auth"), null);
 });
+
+// The real wire document shape produced by buildDocument() (references/areas),
+// which the isDiagramDocument gate requires for a valid operation.
+const WIRE_DOCUMENT = {
+  database: "generic",
+  tables: [{ id: 0 }],
+  references: [],
+  notes: [],
+  areas: [],
+  pan: { x: 0, y: 0 },
+  zoom: 1,
+};
+
+// Shared helper: send JOIN and resolve with the server-assigned clientId.
+async function joinDiagram(socket, diagramId, participant) {
+  const joined = waitForMessage(socket, (message) => message.type === "joined");
+  socket.send(
+    JSON.stringify({
+      type: "join",
+      diagramId,
+      lastVersion: 1,
+      participant: participant ?? {
+        clientId: "local",
+        displayName: "Local",
+        color: "#000",
+      },
+    }),
+  );
+  return (await joined).clientId;
+}
+
+// C1 — a non-string `name` used to reach the SQLite bind and throw
+// synchronously, killing the whole shared process. The server must reject it
+// cleanly AND stay up: a subsequent VALID operation from the same client must
+// still succeed (which is impossible if the process had crashed).
+test("WS operation with a non-string name is rejected and the server survives", async (t) => {
+  const restoreEnv = saveCollabEnv();
+  t.after(restoreEnv);
+  delete process.env.ALLOWED_ORIGINS;
+  process.env.COLLAB_TOKENS =
+    '{"tok-ann":{"userId":"user-ann","displayName":"Ann","color":"#123456"}}';
+
+  const application = createApplication({ databasePath: ":memory:" });
+  application.store.create({
+    id: "diagram-c1",
+    name: "C1 test",
+    document: { tables: [] },
+  });
+  await new Promise((resolve) =>
+    application.server.listen(0, "127.0.0.1", resolve),
+  );
+  const { port } = application.server.address();
+  t.after(() => {
+    application.websocket.close();
+    application.server.close();
+    application.database.close();
+  });
+
+  const socket = await openSocket(
+    `ws://127.0.0.1:${port}/ws/diagrams/diagram-c1?token=tok-ann`,
+  );
+  t.after(() => socket.close());
+  const clientId = await joinDiagram(socket, "diagram-c1");
+
+  // Malicious input: an object where a string name is expected. Pre-fix this
+  // threw inside better-sqlite3's bind and crashed the process.
+  const rejected = waitForMessage(
+    socket,
+    (message) =>
+      message.type === "error" && message.message === "Invalid diagram name",
+  );
+  socket.send(
+    JSON.stringify({
+      type: "operation",
+      diagramId: "diagram-c1",
+      clientId,
+      operationId: "op-c1-bad",
+      baseVersion: 1,
+      operation: {
+        type: "snapshot.replace",
+        payload: { name: { evil: 1 }, document: WIRE_DOCUMENT },
+      },
+    }),
+  );
+  const errorMessage = await rejected;
+  assert.equal(errorMessage.message, "Invalid diagram name");
+  // Nothing was persisted by the bad op.
+  assert.equal(application.store.get("diagram-c1").version, 1);
+
+  // PROOF the server stayed up: a valid operation now succeeds on the same
+  // socket. If the process had crashed, this would time out.
+  const applied = waitForMessage(
+    socket,
+    (message) => message.type === "operation_applied",
+  );
+  socket.send(
+    JSON.stringify({
+      type: "operation",
+      diagramId: "diagram-c1",
+      clientId,
+      operationId: "op-c1-good",
+      baseVersion: 1,
+      operation: {
+        type: "snapshot.replace",
+        payload: { name: "Renamed", document: WIRE_DOCUMENT },
+      },
+    }),
+  );
+  const appliedMessage = await applied;
+  assert.equal(appliedMessage.version, 2);
+  assert.equal(application.store.get("diagram-c1").name, "Renamed");
+});
+
+// C2 — a diagram DELETEd between the WS upgrade existence check and the JOIN
+// message left store.get returning null, and JOIN dereferenced diagram.version
+// → crash. The server must reject with "Diagram not found" and stay up.
+test("WS join on a diagram deleted after upgrade is rejected and the server survives", async (t) => {
+  const restoreEnv = saveCollabEnv();
+  t.after(restoreEnv);
+  delete process.env.ALLOWED_ORIGINS;
+  process.env.COLLAB_TOKENS =
+    '{"tok-ann":{"userId":"user-ann","displayName":"Ann","color":"#123456"}}';
+
+  const application = createApplication({ databasePath: ":memory:" });
+  application.store.create({
+    id: "diagram-c2",
+    name: "C2 test",
+    document: { tables: [] },
+  });
+  await new Promise((resolve) =>
+    application.server.listen(0, "127.0.0.1", resolve),
+  );
+  const { port } = application.server.address();
+  t.after(() => {
+    application.websocket.close();
+    application.server.close();
+    application.database.close();
+  });
+
+  // Both sockets pass the upgrade existence check while the diagram still
+  // exists. socketA joins normally.
+  const socketA = await openSocket(
+    `ws://127.0.0.1:${port}/ws/diagrams/diagram-c2?token=tok-ann`,
+  );
+  const socketB = await openSocket(
+    `ws://127.0.0.1:${port}/ws/diagrams/diagram-c2?token=tok-ann`,
+  );
+  t.after(() => {
+    socketA.close();
+    socketB.close();
+  });
+  await joinDiagram(socketA, "diagram-c2");
+
+  // Delete the diagram out from under the already-upgraded socketB.
+  assert.equal(application.store.delete("diagram-c2"), true);
+
+  // socketB's JOIN now hits a null diagram — pre-fix this crashed the process.
+  const rejected = waitForMessage(
+    socketB,
+    (message) =>
+      message.type === "error" && message.message === "Diagram not found",
+  );
+  socketB.send(
+    JSON.stringify({
+      type: "join",
+      diagramId: "diagram-c2",
+      lastVersion: 1,
+      participant: { clientId: "b", displayName: "B", color: "#000" },
+    }),
+  );
+  assert.equal((await rejected).message, "Diagram not found");
+
+  // PROOF the server stayed up: a fresh diagram accepts a full join + valid op.
+  application.store.create({
+    id: "diagram-c2-fresh",
+    name: "Fresh",
+    document: { tables: [] },
+  });
+  const socketC = await openSocket(
+    `ws://127.0.0.1:${port}/ws/diagrams/diagram-c2-fresh?token=tok-ann`,
+  );
+  t.after(() => socketC.close());
+  const clientIdC = await joinDiagram(socketC, "diagram-c2-fresh");
+  const applied = waitForMessage(
+    socketC,
+    (message) => message.type === "operation_applied",
+  );
+  socketC.send(
+    JSON.stringify({
+      type: "operation",
+      diagramId: "diagram-c2-fresh",
+      clientId: clientIdC,
+      operationId: "op-c2-good",
+      baseVersion: 1,
+      operation: {
+        type: "snapshot.replace",
+        payload: { name: "Fresh renamed", document: WIRE_DOCUMENT },
+      },
+    }),
+  );
+  assert.equal((await applied).version, 2);
+});
+
+// C3 — an operation after the diagram was deleted: updateSnapshot returns
+// { status: "not_found" } with NO `diagram` field, and the handler read
+// result.diagram.version → crash. The server must reject with "Diagram not
+// found" and stay up.
+test("WS operation on a deleted diagram is rejected and the server survives", async (t) => {
+  const restoreEnv = saveCollabEnv();
+  t.after(restoreEnv);
+  delete process.env.ALLOWED_ORIGINS;
+  process.env.COLLAB_TOKENS =
+    '{"tok-ann":{"userId":"user-ann","displayName":"Ann","color":"#123456"}}';
+
+  const application = createApplication({ databasePath: ":memory:" });
+  application.store.create({
+    id: "diagram-c3",
+    name: "C3 test",
+    document: { tables: [] },
+  });
+  await new Promise((resolve) =>
+    application.server.listen(0, "127.0.0.1", resolve),
+  );
+  const { port } = application.server.address();
+  t.after(() => {
+    application.websocket.close();
+    application.server.close();
+    application.database.close();
+  });
+
+  const socket = await openSocket(
+    `ws://127.0.0.1:${port}/ws/diagrams/diagram-c3?token=tok-ann`,
+  );
+  t.after(() => socket.close());
+  const clientId = await joinDiagram(socket, "diagram-c3");
+
+  // Delete the diagram, then send an otherwise-valid operation against it.
+  assert.equal(application.store.delete("diagram-c3"), true);
+
+  const rejected = waitForMessage(
+    socket,
+    (message) =>
+      message.type === "error" && message.message === "Diagram not found",
+  );
+  socket.send(
+    JSON.stringify({
+      type: "operation",
+      diagramId: "diagram-c3",
+      clientId,
+      operationId: "op-c3-deleted",
+      baseVersion: 1,
+      operation: {
+        type: "snapshot.replace",
+        payload: { name: "Ghost", document: WIRE_DOCUMENT },
+      },
+    }),
+  );
+  assert.equal((await rejected).message, "Diagram not found");
+
+  // PROOF the server stayed up: a fresh diagram accepts a full join + valid op.
+  application.store.create({
+    id: "diagram-c3-fresh",
+    name: "Fresh",
+    document: { tables: [] },
+  });
+  const socketC = await openSocket(
+    `ws://127.0.0.1:${port}/ws/diagrams/diagram-c3-fresh?token=tok-ann`,
+  );
+  t.after(() => socketC.close());
+  const clientIdC = await joinDiagram(socketC, "diagram-c3-fresh");
+  const applied = waitForMessage(
+    socketC,
+    (message) => message.type === "operation_applied",
+  );
+  socketC.send(
+    JSON.stringify({
+      type: "operation",
+      diagramId: "diagram-c3-fresh",
+      clientId: clientIdC,
+      operationId: "op-c3-good",
+      baseVersion: 1,
+      operation: {
+        type: "snapshot.replace",
+        payload: { name: "Fresh renamed", document: WIRE_DOCUMENT },
+      },
+    }),
+  );
+  assert.equal((await applied).version, 2);
+});

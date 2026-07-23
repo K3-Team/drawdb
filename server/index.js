@@ -140,6 +140,16 @@ export function createApplication({ databasePath, staticPath } = {}) {
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
+  // Defense-in-depth, ONLY for the running server (not installed when tests
+  // import createApplication). The per-message try/catch in websocket.js is the
+  // real fix; these are last-resort logging so an unforeseen throw elsewhere
+  // logs instead of silently killing the shared collaboration process.
+  process.on("uncaughtException", (err) => {
+    console.error("[collab] uncaughtException:", err);
+  });
+  process.on("unhandledRejection", (err) => {
+    console.error("[collab] unhandledRejection:", err);
+  });
   const port = Number.parseInt(process.env.PORT || "3000", 10);
   const { server } = createApplication();
   server.listen(port, "0.0.0.0", () => {
