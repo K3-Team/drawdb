@@ -250,10 +250,6 @@ const en = {
     failed_to_load: "Failed to load. Make sure the link is correct.",
     share_info:
       "* Sharing this link will not create a live real-time collaboration session.",
-    share_upload_notice:
-      "Generating a link uploads this diagram to the configured backend.",
-    generate_share_link: "Generate share link",
-    try_again: "Try again",
     show_relationship_labels: "Show relationship labels",
     docs: "Docs",
     supported_types: "Supported file types:",
@@ -312,6 +308,27 @@ const en = {
     force_hide: "Force hide",
     primary_key: "Primary key",
     foreign_key: "Foreign key",
+    collaboration_connected: "Connected",
+    collaboration_connecting: "Connecting",
+    collaboration_disconnected: "Disconnected",
+    collaboration_participants: "{{count}} participants",
+    collaboration_participants_one: "{{count}} participant",
+    collaboration_participants_other: "{{count}} participants",
+    collaboration_participant: "Another participant",
+    collaboration_table_lock_denied: "{{name}} is editing this table",
+    collaboration_table_lock_unavailable:
+      "This table could not be locked for editing",
+    collaboration_table_lock_pending: "Requesting edit access...",
+    all_databases: "All databases",
+    all_types: "All types",
+    cloud: "Cloud",
+    local: "Local",
+    owner: "Owner",
+    you: "You",
+    diagrams: "Diagrams",
+    templates: "Templates",
+    no_diagrams_match: "No diagrams match your filters.",
+    failed_to_load_diagrams: "Failed to load diagrams",
   },
 };
 

@@ -1,16 +1,9 @@
 import JSZip from "jszip";
 import { db } from "../data/db";
 import { saveAs } from "file-saver";
+import { diagramApi } from "../api/diagrams";
 
 const zip = new JSZip();
-
-export function safeEntryName(name) {
-  const cleaned = String(name ?? "")
-    .replace(/[/\\]/g, "_") // path separators -> underscore
-    .replace(/\.{2,}/g, "") // collapse .. (and longer runs) to nothing
-    .trim();
-  return cleaned === "" ? "diagram" : cleaned;
-}
 
 const formatDiagram = (diagram) => {
   const formattedDiagram = { ...diagram };
@@ -26,19 +19,27 @@ const formatDiagram = (diagram) => {
 export async function exportSavedData() {
   const diagramsFolder = zip.folder("diagrams");
 
-  await db.diagrams.each((diagram) => {
+  const summaries = await diagramApi.list();
+  const diagrams = await Promise.all(
+    summaries.map((diagram) => diagramApi.get(diagram.id)),
+  );
+  diagrams.forEach((serverDiagram) => {
+    const diagram = {
+      ...serverDiagram.document,
+      name: serverDiagram.name,
+      diagramId: serverDiagram.id,
+    };
     diagramsFolder.file(
-      `${safeEntryName(diagram.name)}(${diagram.id}).json`,
+      `${diagram.name}(${diagram.diagramId}).json`,
       JSON.stringify(formatDiagram(diagram), null, 2),
     );
-    return true;
   });
 
   const templatesFolder = zip.folder("templates");
 
   await db.templates.where({ custom: 1 }).each((template) => {
     templatesFolder.file(
-      `${safeEntryName(template.title)}(${template.id}).json`,
+      `${template.title}(${template.id}).json`,
       JSON.stringify(formatDiagram(template), null, 2),
     );
     return true;
