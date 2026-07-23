@@ -8,11 +8,21 @@ function readError(error, t) {
 
 export function useDiagramList() {
   const { t } = useTranslation();
-  const [state, setState] = useState({ loading: true, error: null, items: [] });
+  const [state, setState] = useState({
+    loading: true,
+    error: null,
+    unauthorized: false,
+    items: [],
+  });
 
   const refresh = useCallback(() => {
     let cancelled = false;
-    setState((current) => ({ ...current, loading: true, error: null }));
+    setState((current) => ({
+      ...current,
+      loading: true,
+      error: null,
+      unauthorized: false,
+    }));
     diagramApi
       .list()
       .then((items) => {
@@ -20,6 +30,7 @@ export function useDiagramList() {
           setState({
             loading: false,
             error: null,
+            unauthorized: false,
             items: items.map((item) => ({
               ...item,
               diagramId: item.id,
@@ -30,7 +41,15 @@ export function useDiagramList() {
       })
       .catch((error) => {
         if (!cancelled) {
-          setState({ loading: false, error: readError(error, t), items: [] });
+          // A 401 means the caller has no valid token yet: surface it distinctly
+          // so the Open dialog can prompt for one and retry, rather than showing
+          // a dead error banner.
+          setState({
+            loading: false,
+            error: readError(error, t),
+            unauthorized: error?.status === 401,
+            items: [],
+          });
         }
       });
     return () => {
@@ -43,6 +62,7 @@ export function useDiagramList() {
   return {
     loading: state.loading,
     error: state.error,
+    unauthorized: state.unauthorized,
     cloud: [],
     local: state.items,
     cloudEnabled: false,

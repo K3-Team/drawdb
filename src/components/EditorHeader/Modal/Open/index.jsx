@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Banner, Spin } from "@douyinfe/semi-ui";
+import { Banner, Button, Input, Spin } from "@douyinfe/semi-ui";
 import { useTranslation } from "react-i18next";
 import { useDiagramList } from "./hooks/useDiagramList";
 import {
@@ -30,13 +30,33 @@ function InfoBanner({ type, children }) {
 
 export default function Open({ selectedDiagramId, setSelectedDiagramId }) {
   const { t } = useTranslation();
-  const { loading, error, cloud, local, cloudEnabled, currentUserId } =
-    useDiagramList();
+  const {
+    loading,
+    error,
+    unauthorized,
+    cloud,
+    local,
+    cloudEnabled,
+    currentUserId,
+    refresh,
+  } = useDiagramList();
 
   const [query, setQuery] = useState("");
   const [database, setDatabase] = useState(ALL);
   const [source, setSource] = useState(ALL);
   const [sort, setSort] = useState(DEFAULT_SORT);
+  const [tokenInput, setTokenInput] = useState("");
+
+  const submitToken = () => {
+    const token = tokenInput.trim();
+    if (token === "") return;
+    // diagramApi reads the token from localStorage on every request, so storing
+    // it and re-fetching is enough to retry the listing with the new token --
+    // no page reload, so the Open dialog stays put and reveals the list.
+    localStorage.setItem("drawdb-collab-token", token);
+    setTokenInput("");
+    refresh();
+  };
 
   const clearFilters = () => {
     setQuery("");
@@ -63,6 +83,29 @@ export default function Open({ selectedDiagramId, setSelectedDiagramId }) {
     return (
       <div className="flex justify-center py-10">
         <Spin />
+      </div>
+    );
+  }
+
+  if (unauthorized) {
+    return (
+      <div className="space-y-3">
+        <InfoBanner type="warning">{t("access_token_required")}</InfoBanner>
+        <Input
+          placeholder={t("enter_access_token")}
+          value={tokenInput}
+          onChange={setTokenInput}
+          onEnterPress={submitToken}
+        />
+        <div className="flex justify-end">
+          <Button
+            theme="solid"
+            disabled={tokenInput.trim() === ""}
+            onClick={submitToken}
+          >
+            {t("save")}
+          </Button>
+        </div>
       </div>
     );
   }
