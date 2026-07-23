@@ -47,6 +47,11 @@ export default function CollabContextProvider({ children }) {
   const sessionRef = useRef(null);
   const pendingRef = useRef(new Map());
   const versionRef = useRef(0);
+  // Currently inert: never set true (remote docs are applied via raw setters in
+  // Workspace.applyDiagramState, which don't emit, and autosave-echo is
+  // suppressed by Workspace's separate applyingRemoteRef). Kept as the reserved
+  // emit-suppression guard for if remote application is ever routed through the
+  // emit-capable action functions that read it via shouldEmit().
   const isApplyingRemoteRef = useRef(false);
   const cursorSentAtRef = useRef(0);
   const previewThrottleRef = useRef(new Map());

@@ -24,12 +24,13 @@ import {
   useCollab,
 } from "../hooks";
 import FloatingControls from "./FloatingControls";
-import { Button, Input, Modal, Tag } from "@douyinfe/semi-ui";
+import { Button, Input, Modal, Tag, Toast } from "@douyinfe/semi-ui";
 import { IconAlertTriangle } from "@douyinfe/semi-icons";
 import { useTranslation } from "react-i18next";
 import { databases } from "../data/databases";
 import { isRtl } from "../i18n/utils/rtl";
 import { useMatch, useParams } from "react-router-dom";
+import { jsonDiagramIsValid } from "../utils/validateSchema";
 
 export const IdContext = createContext({
   gistId: "",
@@ -117,7 +118,32 @@ export default function WorkSpace({ forcedDiagramId } = {}) {
 
   const applyDiagramState = useCallback(
     (serverDiagram, { remote = false } = {}) => {
-      const diagram = serverDiagram.document ?? serverDiagram;
+      const diagram = serverDiagram?.document ?? serverDiagram;
+      // Defense-in-depth: never spread a server/collaborator-pushed document
+      // into editor state without deep validation. The wire document uses the
+      // fork's `references`/`areas` keys, so normalize to the schema's
+      // `relationships`/`subjectAreas` before validating (validation only --
+      // the applied setters below still read the original keys).
+      const normalized =
+        diagram && typeof diagram === "object" && !Array.isArray(diagram)
+          ? {
+              ...diagram,
+              relationships: diagram.references ?? diagram.relationships,
+              subjectAreas: diagram.areas ?? diagram.subjectAreas,
+            }
+          : diagram;
+      if (!jsonDiagramIsValid(normalized)) {
+        if (remote) {
+          Toast.error(
+            t("collab_rejected_update", {
+              defaultValue: "Rejected an invalid update from a collaborator.",
+            }),
+          );
+        } else {
+          Toast.error(t("oops_smth_went_wrong"));
+        }
+        return;
+      }
       applyingRemoteRef.current = true;
       versionRef.current = serverDiagram.version ?? versionRef.current;
       setDatabase(diagram.database || DB.GENERIC);
@@ -151,6 +177,7 @@ export default function WorkSpace({ forcedDiagramId } = {}) {
       setTypes,
       setUndoStack,
       versionRef,
+      t,
     ],
   );
 
@@ -234,7 +261,15 @@ export default function WorkSpace({ forcedDiagramId } = {}) {
           },
           onDelta: (operation) => {
             if (operation?.type !== "table.move") return;
-            const { id: tableId, x, y } = operation.payload;
+            const { id: tableId, x, y } = operation.payload ?? {};
+            // Ignore a malformed move preview from a collaborator: it must
+            // carry an id and finite numeric coordinates.
+            if (
+              tableId == null ||
+              !Number.isFinite(x) ||
+              !Number.isFinite(y)
+            )
+              return;
             setTables((current) =>
               current.map((table) =>
                 table.id === tableId ? { ...table, x, y } : table,
