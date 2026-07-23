@@ -24,4 +24,8 @@ dist-ssr
 *.sw?
 .env
 data/
+
+result
+.direnv
 docs/
+drawdb-tokens.yaml
