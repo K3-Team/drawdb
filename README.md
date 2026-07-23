@@ -38,13 +38,6 @@ npm install
 npm run build
 ```
 
-### Docker Build
-
-```bash
-docker build -t drawdb .
-docker run -p 3000:80 drawdb
-```
-
 If you want to enable sharing, set up the [server](https://github.com/drawdb-io/drawdb-server) and environment variables according to `.env.sample`. This is optional unless you need to share files.
 
 ## Collaboration server
@@ -55,14 +48,14 @@ This fork bundles a live-collaboration server (Express + `ws` + SQLite) that ser
 
 - **Local dev**: `npm run dev` runs the Vite dev server and the collab server concurrently (`npm:dev:server` + `npm:dev:client`), so the SPA is served by Vite while the API/WebSocket run against `node --watch server/index.js`.
 - **Production (bare Node)**: `npm run build` then `npm start` (`node server/index.js`) — the server serves the built `dist/` alongside the API and WebSocket on `PORT` (default `3000`).
-- **Docker / Compose**: `docker build -t drawdb .` / `docker run -p 3000:80 drawdb` for a one-off image, or `docker compose up` using the provided `compose.yml`, which builds the image, publishes `3000:3000`, and persists the SQLite file on a named volume (`drawdb-data:/data`, with `DATABASE_PATH=/data/drawdb.sqlite`).
+- **NixOS**: this repository is a flake. `nix build .#drawdb` produces the server plus the built SPA, and `nixosModules.default` exposes a hardened `services.drawdb` systemd module (DynamicUser, token auth delivered via `LoadCredential`, reverse proxy left to the host). This is the supported production deployment path.
 
 #### Environment variables
 
 | Variable | Purpose |
 | --- | --- |
 | `PORT` | Port the server listens on (default `3000`). |
-| `DATABASE_PATH` | Path to the collaboration server's own SQLite file (default `./data/drawdb.sqlite`, `/data/drawdb.sqlite` in the Docker image). This store holds **live diagrams and their operation log** — it is separate from, and unrelated to, any exported SQL/Postgres schema files the app generates. |
+| `DATABASE_PATH` | Path to the collaboration server's own SQLite file (default `./data/drawdb.sqlite`). This store holds **live diagrams and their operation log** — it is separate from, and unrelated to, any exported SQL/Postgres schema files the app generates. |
 | `COLLAB_TOKENS` | Inline JSON object mapping access tokens to user identities. |
 | `COLLAB_TOKENS_FILE` | Path to a JSON file with the same shape as `COLLAB_TOKENS`, read at boot. Use one or the other. |
 | `COLLAB_REQUIRE_AUTH` | Set to `1` or `true` to make the server **refuse to start** if no tokens are configured. `NODE_ENV=production` has the same effect. |
