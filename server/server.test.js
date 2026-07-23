@@ -48,12 +48,29 @@ function saveCollabEnv() {
 }
 
 test("isDiagramDocument accepts a well-formed diagram and rejects malformed ones", () => {
+  // Schema-form alias: relationships / subjectAreas.
   assert.equal(
     isDiagramDocument({
       tables: [],
       relationships: [],
       notes: [],
       subjectAreas: [],
+    }),
+    true,
+  );
+  // Real wire-form alias: this is the EXACT shape buildDocument() in
+  // src/components/Workspace.jsx produces and sends over the wire
+  // (references / areas, plus assorted non-array fields). Must be accepted,
+  // or every real client save gets rejected by the server.
+  assert.equal(
+    isDiagramDocument({
+      database: "generic",
+      tables: [],
+      references: [],
+      notes: [],
+      areas: [],
+      pan: { x: 0, y: 0 },
+      zoom: 1,
     }),
     true,
   );
@@ -66,6 +83,8 @@ test("isDiagramDocument accepts a well-formed diagram and rejects malformed ones
     }),
     false,
   );
+  // Missing BOTH aliases for relationships/subjectAreas must still be rejected.
+  assert.equal(isDiagramDocument({ tables: [], notes: [] }), false);
   assert.equal(isDiagramDocument({ tables: [] }), false); // missing required arrays
   assert.equal(isDiagramDocument(null), false);
   assert.equal(isDiagramDocument("string"), false);
@@ -545,11 +564,17 @@ test("WS accepts an authenticated operation sent with the server-assigned client
         type: "snapshot.replace",
         payload: {
           name: "Renamed",
+          // Real wire shape from buildDocument() (references/areas), not the
+          // schema-form aliases — proves the server accepts what the actual
+          // client sends.
           document: {
+            database: "generic",
             tables: [{ id: 0 }],
-            relationships: [],
+            references: [],
             notes: [],
-            subjectAreas: [],
+            areas: [],
+            pan: { x: 0, y: 0 },
+            zoom: 1,
           },
         },
       },
