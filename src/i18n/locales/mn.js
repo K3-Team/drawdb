@@ -82,7 +82,6 @@ const mn = {
     storage_flushed: "Хадгалалт цэвэрлэгдлээ",
     help: "Тусламж",
     shortcuts: "Товчлол",
-    ask_on_discord: "Discord дээр асуух",
     feedback: "Санал хүсэлт",
     no_changes: "Өөрчлөлт алга",
     loading: "Уншиж байна...",

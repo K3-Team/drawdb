@@ -82,7 +82,6 @@ const fi = {
     storage_flushed: "Tallennustila tyhjennetty",
     help: "Ohje",
     shortcuts: "Pikanäppäimet",
-    ask_on_discord: "Kysy meiltä Discordissa",
     feedback: "Palaute",
     no_changes: "Ei muutoksia",
     loading: "Ladataan...",

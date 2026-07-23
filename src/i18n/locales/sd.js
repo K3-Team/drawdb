@@ -82,7 +82,6 @@ const sd = {
     storage_flushed: "اسٽوريج صاف ٿي وئي",
     help: "مدد",
     shortcuts: "شارٽ ڪٽس",
-    ask_on_discord: "ڊسڪارڊ تي پڇو",
     feedback: "راءِ",
     no_changes: "ڪو تبديلي ناهي",
     loading: "لوڊ ٿي رهيو آهي...",

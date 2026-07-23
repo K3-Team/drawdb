@@ -80,7 +80,6 @@ const vi = {
     storage_flushed: "Bộ nhớ đã được xóa",
     help: "Giúp đỡ",
     shortcuts: "Phím tắt",
-    ask_on_discord: "Hỏi chúng tôi trên Discord",
     feedback: "Nhận xét",
     no_changes: "Không thay đổi",
     loading: "Đang tải...",

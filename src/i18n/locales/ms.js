@@ -79,7 +79,6 @@ const ms = {
     storage_flushed: "Storan dikosongkan",
     help: "Bantuan",
     shortcuts: "Pintas kekunci",
-    ask_on_discord: "Tanya kami di Discord",
     feedback: "Maklum balas",
     no_changes: "Tiada perubahan",
     loading: "Memuatkan...",

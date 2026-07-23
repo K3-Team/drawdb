@@ -80,7 +80,6 @@ const id = {
     help: "Bantuan",
     docs: "Dokumentasi",
     shortcuts: "Pintasan",
-    ask_on_discord: "Tanya kami di Discord",
     feedback: "Umpan balik",
     no_changes: "Tidak ada perubahan",
     loading: "Memuat...",

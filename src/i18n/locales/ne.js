@@ -70,7 +70,6 @@ const ne = {
     storage_flushed: "स्टोरेज सफा गरियो",
     help: "मद्दत",
     shortcuts: "शॉर्टकटहरू",
-    ask_on_discord: "हामीलाई Discord मा सोध्नुहोस्",
     feedback: "प्रतिक्रिया",
     no_changes: "कुनै परिवर्तन छैन",
     loading: "लोड हुँदैछ...",

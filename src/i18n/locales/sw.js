@@ -82,7 +82,6 @@ const sw = {
     storage_flushed: "Hifadhi imesafishwa",
     help: "Msaada",
     shortcuts: "Njia za mkato",
-    ask_on_discord: "Tuulize kwenye Discord",
     feedback: "Maoni",
     no_changes: "Hakuna mabadiliko",
     loading: "Inapakia...",

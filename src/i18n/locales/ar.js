@@ -75,7 +75,6 @@ const ar = {
     storage_flushed: "تم مسح التخزين",
     help: "مساعدة",
     shortcuts: "الاختصارات",
-    ask_on_discord: "اسألنا على ديسكورد",
     feedback: "التعليقات",
     no_changes: "لا تغييرات",
     loading: "جارٍ التحميل...",

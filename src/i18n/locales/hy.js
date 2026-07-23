@@ -75,7 +75,6 @@ const hy = {
     storage_flushed: "Պահեստը դատարկված է",
     help: "Օգնություն",
     shortcuts: "Դյուրանցումներ",
-    ask_on_discord: "Հարցնել Discord-ում",
     feedback: "Հետադարձ կապ",
     no_changes: "Փոփոխություններ չկան",
     loading: "Բեռնվում է...",

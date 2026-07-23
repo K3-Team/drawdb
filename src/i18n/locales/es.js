@@ -83,7 +83,6 @@ const es = {
     storage_flushed: "¡Almacenamiento vaciado!",
     help: "Ayuda",
     shortcuts: "Atajos",
-    ask_on_discord: "Pregúntanos en Discord",
     feedback: "Retroalimentación",
     no_changes: "Sin cambios",
     loading: "Cargando...",

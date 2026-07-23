@@ -82,7 +82,6 @@ const ur = {
     storage_flushed: "اسٹوریج صاف کر دیا گیا",
     help: "مدد",
     shortcuts: "شارٹ کٹس",
-    ask_on_discord: "Discord پر پوچھیں",
     feedback: "فیڈبیک",
     no_changes: "کوئی تبدیلی نہیں",
     loading: "لوڈ ہو رہا ہے...",

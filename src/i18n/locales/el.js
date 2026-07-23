@@ -80,7 +80,6 @@ const el = {
     storage_flushed: "Η αποθήκευση εκκαθαρίστηκε",
     help: "Βοήθεια",
     shortcuts: "Συντομεύσεις",
-    ask_on_discord: "Ρωτήστε μας στο Discord",
     feedback: "Ανατροφοδότηση",
     no_changes: "Δεν υπάρχουν αλλαγές",
     loading: "Φόρτωση...",

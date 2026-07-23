@@ -84,7 +84,6 @@ const as = {
       storage_flushed: "সংগ্ৰহস্থল খালী কৰা হ'ল",
       help: "সাহায্য",
       shortcuts: "শৰ্টকাটসমূহ",
-      ask_on_discord: "Discord ত সোধক",
       feedback: "প্ৰতিক্ৰিয়া",
       no_changes: "কোনো পৰিবর্তন নাথাকে",
       loading: "লোড কৰা হৈছে...",

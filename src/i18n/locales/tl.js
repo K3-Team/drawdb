@@ -82,7 +82,6 @@ const tl = {
     storage_flushed: "Na-flush ang Storage",
     help: "Tulong",
     shortcuts: "Shortcuts",
-    ask_on_discord: "Magtanong sa amin sa Discord",
     feedback: "Feedback",
     no_changes: "Walang pagbabago",
     loading: "Naglo-load...",

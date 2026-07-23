@@ -68,7 +68,6 @@ const ru = {
     storage_flushed: "Хранилище очищено",
     help: "Помощь",
     shortcuts: "Горячие клавиши",
-    ask_on_discord: "Задайте вопрос в Discord",
     feedback: "Обратная связь",
     no_changes: "Нет изменений",
     loading: "Загрузка...",

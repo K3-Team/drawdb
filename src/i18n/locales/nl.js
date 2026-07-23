@@ -82,7 +82,6 @@ const nl = {
     storage_flushed: "Opslag geleegd",
     help: "Help",
     shortcuts: "Sneltoetsen",
-    ask_on_discord: "Vraag het ons op Discord",
     feedback: "Feedback",
     no_changes: "Geen wijzigingen",
     loading: "Laden...",

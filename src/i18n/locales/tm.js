@@ -82,7 +82,6 @@ const tm = {
     storage_flushed: "சேமிப்பகம் காலி செய்யப்பட்டது",
     help: "உதவி",
     shortcuts: "குறுக்குவழிகள்",
-    ask_on_discord: "டிஸ்கார்டில் கேளுங்கள்",
     feedback: "கருத்து",
     no_changes: "மாற்றங்கள் இல்லை",
     loading: "ஏற்றுகிறது...",

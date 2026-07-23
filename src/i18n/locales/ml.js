@@ -78,7 +78,6 @@ const ml = {
         storage_flushed: "സ്റ്റോറേജ് ഫ്ലഷ് ചെയ്തു",
         help: "സഹായം",
         shortcuts: "ഷോർട്ട്കട്ടുകൾ",
-        ask_on_discord: "ഡിസ്കോർഡിൽ ഞങ്ങളോട് ചോദിക്കുക",
         feedback: "ഫീഡ്ബാക്ക്",
         no_changes: "മാറ്റങ്ങളൊന്നുമില്ല",
         loading: "ലോഡിംഗ്...",

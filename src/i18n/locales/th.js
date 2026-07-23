@@ -82,7 +82,6 @@ const th = {
     storage_flushed: "ล้างข้อมูลแล้ว",
     help: "ช่วยเหลือ",
     shortcuts: "ทางลัด",
-    ask_on_discord: "ถามเราใน Discord",
     feedback: "ข้อเสนอแนะ",
     no_changes: "ไม่มีการเปลี่ยนแปลง",
     loading: "กำลังโหลด...",

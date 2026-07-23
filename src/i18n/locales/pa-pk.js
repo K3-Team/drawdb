@@ -82,7 +82,6 @@ const pa_pk = {
     storage_flushed: "سٹوریج صاف ہو گیا",
     help: "مدد",
     shortcuts: "شارٹ کٹ",
-    ask_on_discord: "Discord تے پچھو",
     feedback: "فیڈبیک",
     no_changes: "کوئی تبدیلی نہیں",
     loading: "لوڈ ہو رہیا اے...",

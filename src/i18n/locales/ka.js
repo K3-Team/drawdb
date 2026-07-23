@@ -82,7 +82,6 @@ const ka = {
     storage_flushed: "ಸಂಗ್ರಹವನ್ನು ಫ್ಲಷ್ ಮಾಡಲಾಗಿದೆ",
     help: "ಸಹಾಯ",
     shortcuts: "ಶಾರ್ಟ್‌ಕಟ್‌ಗಳು",
-    ask_on_discord: "Discord ನಲ್ಲಿ ಕೇಳಿ",
     feedback: "ಪ್ರತಿಕ್ರಿಯೆ",
     no_changes: "ಯಾವುದೇ ಬದಲಾವಣೆಗಳಿಲ್ಲ",
     loading: "ಲೋಡ್ ಆಗುತ್ತಿದೆ...",

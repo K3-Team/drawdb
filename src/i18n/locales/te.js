@@ -68,7 +68,6 @@ const te = {
     storage_flushed: "స్టోరేజ్ క్లియర్ చేయబడింది",
     help: "సహాయం",
     shortcuts: "షార్ట్‌కట్లు",
-    ask_on_discord: "Discord లో అడగండి",
     feedback: "ఫీడ్బాక్",
     no_changes: "ఏ మార్పులూ లేవు",
     loading: "లోడ్ అవుతోంది...",

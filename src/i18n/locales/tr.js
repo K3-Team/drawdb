@@ -75,7 +75,6 @@ const tr = {
     storage_flushed: "Depo temizlendi",
     help: "Yardım",
     shortcuts: "Kısayollar",
-    ask_on_discord: "Discord'da sor",
     feedback: "Geribildirim",
     no_changes: "Değişiklik yok",
     loading: "Yükleniyor...",

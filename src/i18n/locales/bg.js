@@ -82,7 +82,6 @@ const bg = {
         storage_flushed: "Хранилището е изчистено",
         help: "Помощ",
         shortcuts: "Клавишни комбинации",
-        ask_on_discord: "Попитайте ни в Discord",
         feedback: "Обратна връзка",
         no_changes: "Няма промени",
         loading: "Зареждане...",
