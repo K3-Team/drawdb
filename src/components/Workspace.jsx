@@ -24,7 +24,7 @@ import {
   useCollab,
 } from "../hooks";
 import FloatingControls from "./FloatingControls";
-import { Button, Modal, Tag } from "@douyinfe/semi-ui";
+import { Button, Input, Modal, Tag } from "@douyinfe/semi-ui";
 import { IconAlertTriangle } from "@douyinfe/semi-icons";
 import { useTranslation } from "react-i18next";
 import { databases } from "../data/databases";
@@ -51,6 +51,8 @@ export default function WorkSpace({ forcedDiagramId } = {}) {
   const [showSelectDbModal, setShowSelectDbModal] = useState(false);
   const [showRestoreModal, setShowRestoreModal] = useState(false);
   const [selectedDb, setSelectedDb] = useState("");
+  const [showTokenModal, setShowTokenModal] = useState(false);
+  const [tokenInput, setTokenInput] = useState("");
 
   const pendingNewIdRef = useRef(null);
   const loadedIdRef = useRef(null);
@@ -243,6 +245,7 @@ export default function WorkSpace({ forcedDiagramId } = {}) {
       } catch (error) {
         console.warn("diagram load failed:", error);
         setSaveState(State.FAILED_TO_LOAD);
+        if (error.status === 401) setShowTokenModal(true);
       }
     };
 
@@ -523,6 +526,40 @@ export default function WorkSpace({ forcedDiagramId } = {}) {
         }}
       >
         {t("restore_warning")}
+      </Modal>
+      <Modal
+        visible={showTokenModal}
+        centered
+        closable
+        title={t("enter_access_token")}
+        okText={t("save")}
+        cancelText={t("cancel")}
+        onCancel={() => setShowTokenModal(false)}
+        okButtonProps={{ disabled: tokenInput.trim() === "" }}
+        onOk={() => {
+          localStorage.setItem(
+            "drawdb-collab-token",
+            tokenInput.trim(),
+          );
+          window.location.reload();
+        }}
+      >
+        <div className="space-y-2">
+          <div>{t("access_token_required")}</div>
+          <Input
+            placeholder={t("enter_access_token")}
+            value={tokenInput}
+            onChange={(v) => setTokenInput(v)}
+            onEnterPress={() => {
+              if (tokenInput.trim() === "") return;
+              localStorage.setItem(
+                "drawdb-collab-token",
+                tokenInput.trim(),
+              );
+              window.location.reload();
+            }}
+          />
+        </div>
       </Modal>
     </div>
   );

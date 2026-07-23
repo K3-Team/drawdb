@@ -319,6 +319,8 @@ const en = {
     collaboration_table_lock_unavailable:
       "This table could not be locked for editing",
     collaboration_table_lock_pending: "Requesting edit access...",
+    enter_access_token: "Enter your access token",
+    access_token_required: "This diagram requires an access token.",
     all_databases: "All databases",
     all_types: "All types",
     cloud: "Cloud",

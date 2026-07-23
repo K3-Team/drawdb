@@ -1,7 +1,10 @@
 const JSON_HEADERS = { "Content-Type": "application/json" };
 
-async function request(url, options) {
-  const response = await fetch(url, options);
+async function request(url, options = {}) {
+  const token = localStorage.getItem("drawdb-collab-token");
+  const headers = { ...(options.headers || {}) };
+  if (token) headers.Authorization = `Bearer ${token}`;
+  const response = await fetch(url, { ...options, headers });
   if (response.status === 204) return null;
   const body = await response.json().catch(() => ({}));
   if (!response.ok) {
