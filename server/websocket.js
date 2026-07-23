@@ -69,47 +69,63 @@ export function attachCollaborationServer(
   };
 
   server.on("upgrade", (request, socket, head) => {
-    const url = new URL(request.url, "http://localhost");
-    const match = url.pathname.match(/^\/ws\/diagrams\/([^/]+)$/);
-    const diagramId = match?.[1];
-    // URL shape validation only — this leaks nothing about which diagrams
-    // exist (a malformed path is rejected regardless of auth).
-    if (!diagramId || !DIAGRAM_ID_PATTERN.test(diagramId)) {
-      socket.write("HTTP/1.1 404 Not Found\r\n\r\n");
-      socket.destroy();
-      return;
-    }
-    // Origin allowlist first, then token auth — both must pass before we
-    // reveal anything else about the target diagram.
-    if (!isOriginAllowed(allowedOrigins, request.headers.origin)) {
-      socket.write("HTTP/1.1 403 Forbidden\r\n\r\n");
-      socket.destroy();
-      return;
-    }
-    let identity = null;
-    if (tokens && tokens.size > 0) {
-      // Token is carried in the ?token= query param (approved v1 transport);
-      // operators MUST keep it out of proxy access logs.
-      const token = url.searchParams.get("token");
-      identity = authenticateToken(tokens, token);
-      if (!identity) {
-        socket.write("HTTP/1.1 401 Unauthorized\r\n\r\n");
+    // The whole upgrade path runs PRE-AUTH and outside the message-handler
+    // try/catch. `new URL(request.url, ...)` throws on malformed request
+    // targets (e.g. `/\`, `http://[bad`) that Node's HTTP parser passes through
+    // verbatim. An unhandled throw here would crash the embedded server (and in
+    // the CLI leak the socket). Isolate it: on ANY throw, 400 + destroy the
+    // socket so no connection is left hung.
+    try {
+      const url = new URL(request.url, "http://localhost");
+      const match = url.pathname.match(/^\/ws\/diagrams\/([^/]+)$/);
+      const diagramId = match?.[1];
+      // URL shape validation only — this leaks nothing about which diagrams
+      // exist (a malformed path is rejected regardless of auth).
+      if (!diagramId || !DIAGRAM_ID_PATTERN.test(diagramId)) {
+        socket.write("HTTP/1.1 404 Not Found\r\n\r\n");
         socket.destroy();
         return;
       }
-    }
-    // Existence check runs AFTER auth so unauthenticated/wrong-origin callers
-    // cannot probe which diagram ids exist.
-    if (!store.get(diagramId)) {
-      socket.write("HTTP/1.1 404 Not Found\r\n\r\n");
+      // Origin allowlist first, then token auth — both must pass before we
+      // reveal anything else about the target diagram.
+      if (!isOriginAllowed(allowedOrigins, request.headers.origin)) {
+        socket.write("HTTP/1.1 403 Forbidden\r\n\r\n");
+        socket.destroy();
+        return;
+      }
+      let identity = null;
+      if (tokens && tokens.size > 0) {
+        // Token is carried in the ?token= query param (approved v1 transport);
+        // operators MUST keep it out of proxy access logs.
+        const token = url.searchParams.get("token");
+        identity = authenticateToken(tokens, token);
+        if (!identity) {
+          socket.write("HTTP/1.1 401 Unauthorized\r\n\r\n");
+          socket.destroy();
+          return;
+        }
+      }
+      // Existence check runs AFTER auth so unauthenticated/wrong-origin callers
+      // cannot probe which diagram ids exist.
+      if (!store.get(diagramId)) {
+        socket.write("HTTP/1.1 404 Not Found\r\n\r\n");
+        socket.destroy();
+        return;
+      }
+      wss.handleUpgrade(request, socket, head, (ws) => {
+        ws.diagramId = diagramId;
+        ws.identity = identity;
+        wss.emit("connection", ws, request);
+      });
+    } catch (error) {
+      console.error("[collab] Error during WebSocket upgrade:", error);
+      try {
+        socket.write("HTTP/1.1 400 Bad Request\r\n\r\n");
+      } catch {
+        /* socket may already be gone */
+      }
       socket.destroy();
-      return;
     }
-    wss.handleUpgrade(request, socket, head, (ws) => {
-      ws.diagramId = diagramId;
-      ws.identity = identity;
-      wss.emit("connection", ws, request);
-    });
   });
 
   wss.on("connection", (socket) => {

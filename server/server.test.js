@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import net from "node:net";
 import test from "node:test";
 import { WebSocket } from "ws";
 import { createDiagramStore, openDatabase } from "./database.js";
@@ -1079,4 +1080,97 @@ test("WS operation on a deleted diagram is rejected and the server survives", as
     }),
   );
   assert.equal((await applied).version, 2);
+});
+
+// C4 — the upgrade handler runs PRE-AUTH and `new URL(request.url, ...)` throws
+// on malformed request targets (e.g. `/\`) that Node's HTTP parser passes
+// through verbatim. Pre-fix that throw was UNHANDLED in the embedded server: a
+// hard process exit (and in the CLI it leaked the socket). The handler must now
+// reply 400, DESTROY the offending socket, and keep the process alive. Sent as
+// a RAW HTTP upgrade over a plain TCP socket, since a ws client / new URL would
+// reject the bad target before it ever reaches the wire.
+test("WS upgrade with a malformed request target is rejected, socket destroyed, server survives", async (t) => {
+  const restoreEnv = saveCollabEnv();
+  t.after(restoreEnv);
+  delete process.env.ALLOWED_ORIGINS;
+  process.env.COLLAB_TOKENS =
+    '{"tok-ann":{"userId":"user-ann","displayName":"Ann","color":"#123456"}}';
+
+  const application = createApplication({ databasePath: ":memory:" });
+  application.store.create({
+    id: "diagram-c4",
+    name: "C4 test",
+    document: { tables: [] },
+  });
+  await new Promise((resolve) =>
+    application.server.listen(0, "127.0.0.1", resolve),
+  );
+  const { port } = application.server.address();
+  t.after(() => {
+    application.websocket.close();
+    application.server.close();
+    application.database.close();
+  });
+
+  // Craft a raw HTTP/1.1 upgrade whose request-target is `/\` — Node's parser
+  // accepts it and hands `new URL()` a value it throws on. No token, no valid
+  // diagram: this is the pre-authentication crash path.
+  const rawResult = await new Promise((resolve, reject) => {
+    const client = net.connect(port, "127.0.0.1", () => {
+      client.write(
+        "GET /\\ HTTP/1.1\r\n" +
+          "Host: 127.0.0.1\r\n" +
+          "Upgrade: websocket\r\n" +
+          "Connection: Upgrade\r\n" +
+          "Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\n" +
+          "Sec-WebSocket-Version: 13\r\n" +
+          "\r\n",
+      );
+    });
+    let response = "";
+    let closed = false;
+    client.on("data", (chunk) => {
+      response += chunk.toString();
+    });
+    // The server destroys the socket after replying — prove the connection is
+    // not left hung (FD/resource leak).
+    client.on("close", () => {
+      closed = true;
+      resolve({ response, closed });
+    });
+    client.on("error", reject);
+    setTimeout(() => reject(new Error("raw upgrade timed out")), 2_000);
+  });
+
+  // Rejected cleanly with 400 AND the malformed socket was destroyed.
+  assert.match(rawResult.response, /^HTTP\/1\.1 400/);
+  assert.equal(rawResult.closed, true);
+
+  // PROOF the server stayed up (embedded app has no CLI uncaughtException net,
+  // so a regression here would kill this test process): a valid authenticated
+  // connection completes join + a valid operation.
+  const socket = await openSocket(
+    `ws://127.0.0.1:${port}/ws/diagrams/diagram-c4?token=tok-ann`,
+  );
+  t.after(() => socket.close());
+  const clientId = await joinDiagram(socket, "diagram-c4");
+  const applied = waitForMessage(
+    socket,
+    (message) => message.type === "operation_applied",
+  );
+  socket.send(
+    JSON.stringify({
+      type: "operation",
+      diagramId: "diagram-c4",
+      clientId,
+      operationId: "op-c4-good",
+      baseVersion: 1,
+      operation: {
+        type: "snapshot.replace",
+        payload: { name: "Survived", document: WIRE_DOCUMENT },
+      },
+    }),
+  );
+  assert.equal((await applied).version, 2);
+  assert.equal(application.store.get("diagram-c4").name, "Survived");
 });
