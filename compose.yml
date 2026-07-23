@@ -3,7 +3,7 @@ services:
     image: node:20-alpine
     container_name: drawdb
     ports:
-      - 5173:5173
+      - 127.0.0.1:5173:5173
     working_dir: /var/www/html
     volumes:
       - ./:/var/www/html
