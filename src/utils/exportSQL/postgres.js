@@ -5,14 +5,22 @@ import {
   uniqueConstraintClause,
   getFkColumnNames,
 } from "./shared";
+import {
+  quoterFor,
+  safeConstraint,
+  assertNoStatementBreak,
+} from "./identifiers";
 import { dbToTypes } from "../../data/datatypes";
+import { DB } from "../../data/constants";
 
 export function toPostgres(diagram) {
+  const q = quoterFor(DB.POSTGRES);
+
   const enumStatements = diagram.enums
     .map(
       (e) =>
-        `CREATE TYPE "${e.name}" AS ENUM (\n${e.values
-          .map((v) => `\t'${v}'`)
+        `CREATE TYPE ${q(e.name)} AS ENUM (\n${e.values
+          .map((v) => `\t'${escapeQuotes(String(v))}'`)
           .join(",\n")}\n);\n`,
     )
     .join("\n");
@@ -24,7 +32,7 @@ export function toPostgres(diagram) {
           .map((f) => `\t${f.name} ${f.type}`)
           .join(",\n")}\n);\n\n${
           type.comment?.trim()
-            ? `COMMENT ON TYPE "${type.name}" IS '${escapeQuotes(type.comment)}';\n`
+            ? `COMMENT ON TYPE ${q(type.name)} IS '${escapeQuotes(type.comment)}';\n`
             : ""
         }`,
     )
@@ -34,15 +42,15 @@ export function toPostgres(diagram) {
     .map((table) => {
       const inheritsClause =
         Array.isArray(table.inherits) && table.inherits.length > 0
-          ? `\n) INHERITS (${table.inherits.map((parent) => `"${parent}"`).join(", ")})`
+          ? `\n) INHERITS (${table.inherits.map((parent) => q(parent)).join(", ")})`
           : "\n)";
 
       const fieldDefinitions = table.fields
         .map(
           (field) =>
-            `${exportFieldComment(field.comment)}\t"${
-              field.name
-            }" ${field.type}${
+            `${exportFieldComment(field.comment)}\t${q(
+              field.name,
+            )} ${field.type}${
               field.size ? `(${field.size})` : ""
             }${field.isArray ? " ARRAY" : ""}${field.notNull ? " NOT NULL" : ""}${
               field.unique ? " UNIQUE" : ""
@@ -52,7 +60,7 @@ export function toPostgres(diagram) {
                 : ""
             }${
               field.check && dbToTypes[diagram.database][field.type]?.hasCheck
-                ? ` CHECK(${field.check})`
+                ? ` CHECK(${assertNoStatementBreak(field.check)})`
                 : ""
             }`,
         )
@@ -61,20 +69,20 @@ export function toPostgres(diagram) {
       const primaryKeyClause = table.fields.some((f) => f.primary)
         ? `,\n\tPRIMARY KEY(${table.fields
             .filter((f) => f.primary)
-            .map((f) => `"${f.name}"`)
+            .map((f) => q(f.name))
             .join(", ")})`
         : "";
 
-      const uniqueClause = uniqueConstraintClause(table, (s) => `"${s}"`);
+      const uniqueClause = uniqueConstraintClause(table, q);
 
       const commentStatements = [
         table.comment?.trim()
-          ? `COMMENT ON TABLE "${table.name}" IS '${escapeQuotes(table.comment)}';`
+          ? `COMMENT ON TABLE ${q(table.name)} IS '${escapeQuotes(table.comment)}';`
           : "",
         ...table.fields
           .map((field) =>
             field.comment?.trim()
-              ? `COMMENT ON COLUMN "${table.name}"."${field.name}" IS '${escapeQuotes(field.comment)}';`
+              ? `COMMENT ON COLUMN ${q(table.name)}.${q(field.name)} IS '${escapeQuotes(field.comment)}';`
               : "",
           )
           .filter(Boolean),
@@ -83,13 +91,13 @@ export function toPostgres(diagram) {
       const indexStatements = table.indices
         .map(
           (i) =>
-            `CREATE ${i.unique ? "UNIQUE " : ""}INDEX "${i.name}"\nON "${table.name}" (${i.fields
-              .map((f) => `"${f}"`)
+            `CREATE ${i.unique ? "UNIQUE " : ""}INDEX ${q(i.name)}\nON ${q(table.name)} (${i.fields
+              .map((f) => q(f))
               .join(", ")});`,
         )
         .join("\n");
 
-      return `CREATE TABLE IF NOT EXISTS "${table.name}" (\n${fieldDefinitions}${primaryKeyClause}${uniqueClause}${inheritsClause};\n\n${commentStatements}\n${indexStatements}`;
+      return `CREATE TABLE IF NOT EXISTS ${q(table.name)} (\n${fieldDefinitions}${primaryKeyClause}${uniqueClause}${inheritsClause};\n\n${commentStatements}\n${indexStatements}`;
     })
     .join("\n\n");
 
@@ -108,11 +116,11 @@ export function toPostgres(diagram) {
       if (startColumns.some((c) => !c) || endColumns.some((c) => !c))
         return "";
 
-      return `ALTER TABLE "${startTable.name}"\nADD FOREIGN KEY(${startColumns
-        .map((c) => `"${c}"`)
-        .join(", ")}) REFERENCES "${endTable.name}"(${endColumns
-        .map((c) => `"${c}"`)
-        .join(", ")})\nON UPDATE ${r.updateConstraint.toUpperCase()} ON DELETE ${r.deleteConstraint.toUpperCase()};`;
+      return `ALTER TABLE ${q(startTable.name)}\nADD FOREIGN KEY(${startColumns
+        .map((c) => q(c))
+        .join(", ")}) REFERENCES ${q(endTable.name)}(${endColumns
+        .map((c) => q(c))
+        .join(", ")})\nON UPDATE ${safeConstraint(r.updateConstraint)} ON DELETE ${safeConstraint(r.deleteConstraint)};`;
     })
     .filter(Boolean)
     .join("\n");

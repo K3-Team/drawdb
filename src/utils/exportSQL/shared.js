@@ -1,5 +1,6 @@
 import { isFunction, isKeyword, getRelationshipFields } from "../utils";
 
+import { safeConstraint } from "./identifiers";
 import { DB } from "../../data/constants";
 import { dbToTypes } from "../../data/datatypes";
 
@@ -60,7 +61,11 @@ export function uniqueConstraintClause(table, quote) {
   );
 }
 
-export function getInlineFK(table, obj) {
+export function getInlineFK(
+  table,
+  obj,
+  q = (s) => `"${String(s).replace(/"/g, '""')}"`,
+) {
   let fks = [];
   obj.references.forEach((r) => {
     if (r.startTableId === table.id) {
@@ -72,10 +77,10 @@ export function getInlineFK(table, obj) {
       );
       fks.push(
         `\tFOREIGN KEY (${startColumns
-          .map((c) => `"${c}"`)
-          .join(", ")}) REFERENCES "${endTable?.name}"(${endColumns
-          .map((c) => `"${c}"`)
-          .join(", ")})\n\tON UPDATE ${r.updateConstraint.toUpperCase()} ON DELETE ${r.deleteConstraint.toUpperCase()}`,
+          .map((c) => q(c))
+          .join(", ")}) REFERENCES ${q(endTable?.name)}(${endColumns
+          .map((c) => q(c))
+          .join(", ")})\n\tON UPDATE ${safeConstraint(r.updateConstraint)} ON DELETE ${safeConstraint(r.deleteConstraint)}`,
       );
     }
   });

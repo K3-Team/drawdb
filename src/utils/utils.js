@@ -51,7 +51,7 @@ export function isKeyword(str) {
 }
 
 export function isFunction(str) {
-  return /\w+\([^)]*\)$/.test(str);
+  return /^\w+\([^)]*\)$/.test(str);
 }
 
 export function areFieldsCompatible(db, field1Type, field2Type) {

@@ -1,22 +1,30 @@
 import { dbToTypes } from "../../data/datatypes";
+import { DB } from "../../data/constants";
 import {
   parseDefault,
   uniqueConstraintClause,
   getFkColumnNames,
 } from "./shared";
+import {
+  quoterFor,
+  safeConstraint,
+  assertNoStatementBreak,
+} from "./identifiers";
 
 export function toOracleSQL(diagram) {
+  const q = quoterFor(DB.ORACLESQL);
+
   return `${diagram.tables
     .map(
       (table) =>
         `${
           table.comment === "" ? "" : `/* ${table.comment} */\n`
-        }CREATE TABLE "${table.name}" (\n${table.fields
+        }CREATE TABLE ${q(table.name)} (\n${table.fields
           .map(
             (field) =>
-              `${field.comment === "" ? "" : `\t-- ${field.comment}\n`}\t"${
-                field.name
-              }" ${field.type}${
+              `${field.comment === "" ? "" : `\t-- ${field.comment}\n`}\t${q(
+                field.name,
+              )} ${field.type}${
                 field.size !== undefined && field.size !== ""
                   ? "(" + field.size + ")"
                   : ""
@@ -30,21 +38,21 @@ export function toOracleSQL(diagram) {
                 field.check === "" ||
                 !dbToTypes[diagram.database][field.type].hasCheck
                   ? ""
-                  : ` CHECK(${field.check})`
+                  : ` CHECK(${assertNoStatementBreak(field.check)})`
               }${field.comment ? ` -- ${field.comment}` : ""}`,
           )
           .join(",\n")}${
           table.fields.filter((f) => f.primary).length > 0
             ? `,\n\tPRIMARY KEY(${table.fields
                 .filter((f) => f.primary)
-                .map((f) => `"${f.name}"`)
+                .map((f) => q(f.name))
                 .join(", ")})`
             : ""
-        }${uniqueConstraintClause(table, (s) => `"${s}"`)}\n)${table.comment ? ` -- ${table.comment}` : ""};\n${`\n${table.indices
+        }${uniqueConstraintClause(table, q)}\n)${table.comment ? ` -- ${table.comment}` : ""};\n${`\n${table.indices
           .map(
             (i) =>
-              `\nCREATE ${i.unique ? "UNIQUE " : ""}INDEX "${i.name}"\nON "${table.name}" (${i.fields
-                .map((f) => `"${f}"`)
+              `\nCREATE ${i.unique ? "UNIQUE " : ""}INDEX ${q(i.name)}\nON ${q(table.name)} (${i.fields
+                .map((f) => q(f))
                 .join(", ")});`,
           )
           .join("")}`}`,
@@ -61,11 +69,11 @@ export function toOracleSQL(diagram) {
         { fields: startFields },
         endTable,
       );
-      return `ALTER TABLE "${startName}"\nADD CONSTRAINT "${r.name}" FOREIGN KEY (${startColumns
-        .map((c) => `"${c}"`)
-        .join(", ")}) REFERENCES "${endName}" (${endColumns
-        .map((c) => `"${c}"`)
-        .join(", ")})\nON UPDATE ${r.updateConstraint.toUpperCase()} ON DELETE ${r.deleteConstraint.toUpperCase()};`;
+      return `ALTER TABLE ${q(startName)}\nADD CONSTRAINT ${q(r.name)} FOREIGN KEY (${startColumns
+        .map((c) => q(c))
+        .join(", ")}) REFERENCES ${q(endName)} (${endColumns
+        .map((c) => q(c))
+        .join(", ")})\nON UPDATE ${safeConstraint(r.updateConstraint)} ON DELETE ${safeConstraint(r.deleteConstraint)};`;
     })
     .join("\n")}`;
 }

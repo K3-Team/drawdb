@@ -4,6 +4,11 @@ import {
   uniqueConstraintClause,
   getFkColumnNames,
 } from "./shared";
+import {
+  quoterFor,
+  safeConstraint,
+  assertNoStatementBreak,
+} from "./identifiers";
 
 import { dbToTypes } from "../../data/datatypes";
 import { DB } from "../../data/constants";
@@ -37,6 +42,8 @@ GO
 }
 
 export function toMSSQL(diagram) {
+  const q = quoterFor(DB.MSSQL);
+
   const tablesSql = diagram.tables
     .map((table) => {
       const fieldsSql = table.fields
@@ -44,7 +51,7 @@ export function toMSSQL(diagram) {
           const typeMetaData = dbToTypes[DB.MSSQL][field.type.toUpperCase()];
           const isSized = typeMetaData.isSized || typeMetaData.hasPrecision;
 
-          return `\t[${field.name}] ${field.type}${field.size && isSized ? `(${field.size})` : ""}${
+          return `\t${q(field.name)} ${field.type}${field.size && isSized ? `(${field.size})` : ""}${
             field.notNull ? " NOT NULL" : ""
           }${field.increment ? " IDENTITY" : ""}${
             field.unique ? " UNIQUE" : ""
@@ -56,7 +63,7 @@ export function toMSSQL(diagram) {
             field.check === "" ||
             !dbToTypes[diagram.database][field.type].hasCheck
               ? ""
-              : ` CHECK(${field.check})`
+              : ` CHECK(${assertNoStatementBreak(field.check)})`
           }`;
         })
         .join(",\n");
@@ -64,14 +71,12 @@ export function toMSSQL(diagram) {
       const primaryKeys = table.fields.filter((f) => f.primary);
       const primaryKeySql =
         primaryKeys.length > 0
-          ? `,\n\tPRIMARY KEY(${primaryKeys
-              .map((f) => `[${f.name}]`)
-              .join(", ")})`
+          ? `,\n\tPRIMARY KEY(${primaryKeys.map((f) => q(f.name)).join(", ")})`
           : "";
 
-      const uniqueSql = uniqueConstraintClause(table, (s) => `[${s}]`);
+      const uniqueSql = uniqueConstraintClause(table, q);
 
-      const createTableSql = `CREATE TABLE [${table.name}] (\n${fieldsSql}${primaryKeySql}${uniqueSql}\n);\nGO\n`;
+      const createTableSql = `CREATE TABLE ${q(table.name)} (\n${fieldsSql}${primaryKeySql}${uniqueSql}\n);\nGO\n`;
 
       const tableCommentSql = generateAddExtendedPropertySQL(
         table.comment,
@@ -87,10 +92,10 @@ export function toMSSQL(diagram) {
       const indicesSql = table.indices
         .map(
           (i) =>
-            `\nCREATE ${i.unique ? "UNIQUE " : ""}INDEX [${
-              i.name
-            }]\nON [${table.name}] (${i.fields
-              .map((f) => `[${f}]`)
+            `\nCREATE ${i.unique ? "UNIQUE " : ""}INDEX ${q(
+              i.name,
+            )}\nON ${q(table.name)} (${i.fields
+              .map((f) => q(f))
               .join(", ")});\nGO\n`,
         )
         .join("");
@@ -115,10 +120,10 @@ export function toMSSQL(diagram) {
       if (startColumns.some((c) => !c) || endColumns.some((c) => !c))
         return "";
 
-      return `\nALTER TABLE [${startTable.name}]
-ADD FOREIGN KEY(${startColumns.map((c) => `[${c}]`).join(", ")})
-REFERENCES [${endTable.name}](${endColumns.map((c) => `[${c}]`).join(", ")})
-ON UPDATE ${r.updateConstraint.toUpperCase()} ON DELETE ${r.deleteConstraint.toUpperCase()};
+      return `\nALTER TABLE ${q(startTable.name)}
+ADD FOREIGN KEY(${startColumns.map((c) => q(c)).join(", ")})
+REFERENCES ${q(endTable.name)}(${endColumns.map((c) => q(c)).join(", ")})
+ON UPDATE ${safeConstraint(r.updateConstraint)} ON DELETE ${safeConstraint(r.deleteConstraint)};
 GO`;
     })
     .join("");
