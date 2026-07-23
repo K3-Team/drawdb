@@ -3,6 +3,14 @@ import { db } from "../data/db";
 import { saveAs } from "file-saver";
 import { diagramApi } from "../api/diagrams";
 
+export function safeEntryName(name) {
+  const cleaned = String(name ?? "")
+    .replace(/[/\\]/g, "_") // path separators -> underscore
+    .replace(/\.{2,}/g, "") // collapse .. (and longer runs) to nothing
+    .trim();
+  return cleaned === "" ? "diagram" : cleaned;
+}
+
 const zip = new JSZip();
 
 const formatDiagram = (diagram) => {
@@ -30,7 +38,7 @@ export async function exportSavedData() {
       diagramId: serverDiagram.id,
     };
     diagramsFolder.file(
-      `${diagram.name}(${diagram.diagramId}).json`,
+      `${safeEntryName(diagram.name)}(${diagram.diagramId}).json`,
       JSON.stringify(formatDiagram(diagram), null, 2),
     );
   });
@@ -39,7 +47,7 @@ export async function exportSavedData() {
 
   await db.templates.where({ custom: 1 }).each((template) => {
     templatesFolder.file(
-      `${template.title}(${template.id}).json`,
+      `${safeEntryName(template.title)}(${template.id}).json`,
       JSON.stringify(formatDiagram(template), null, 2),
     );
     return true;
