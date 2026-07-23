@@ -50,6 +50,8 @@ export default function ImportDiagram({
       return;
     }
 
+    const extension = file.name.split(".").pop().toLowerCase();
+
     if (file.type === "application/json") {
       if (!jsonDiagramIsValid(jsonObject)) {
         setError({
@@ -58,7 +60,7 @@ export default function ImportDiagram({
         });
         return;
       }
-    } else if (file.name.split(".").pop() === "ddb") {
+    } else if (extension === "ddb") {
       if (!ddbDiagramIsValid(jsonObject)) {
         setError({
           type: STATUS.ERROR,
@@ -66,6 +68,12 @@ export default function ImportDiagram({
         });
         return;
       }
+    } else {
+      setError({
+        type: STATUS.ERROR,
+        message: "Unsupported file type. Expected a .json or .ddb diagram.",
+      });
+      return;
     }
 
     if (!jsonObject.database) {

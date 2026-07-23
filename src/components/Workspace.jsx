@@ -29,7 +29,7 @@ import {
   useNavigateWithParams,
 } from "../hooks";
 import FloatingControls from "./FloatingControls";
-import { Button, Modal, Tag } from "@douyinfe/semi-ui";
+import { Button, Modal, Tag, Toast } from "@douyinfe/semi-ui";
 import { IconAlertTriangle } from "@douyinfe/semi-icons";
 import { useTranslation } from "react-i18next";
 import { databases } from "../data/databases";
@@ -37,6 +37,7 @@ import { isRtl } from "../i18n/utils/rtl";
 import { useMatch, useParams, useSearchParams } from "react-router-dom";
 import { get, SHARE_FILENAME } from "../api/gists";
 import { mergeCustomTypes } from "../utils/customTypes";
+import { jsonDiagramIsValid } from "../utils/validateSchema";
 import {
   readDismissedBanners,
   addDismissedBanner,
@@ -384,6 +385,11 @@ export default function WorkSpace({ forcedDiagramId } = {}) {
       try {
         const { data } = await get(shareId);
         const parsed = JSON.parse(data.files[SHARE_FILENAME].content);
+        if (!jsonDiagramIsValid(parsed)) {
+          Toast.error(t("oops_smth_went_wrong"));
+          setSaveState(State.FAILED_TO_LOAD);
+          return;
+        }
         setDiagramSource(null);
         setUndoStack([]);
         setRedoStack([]);
@@ -457,6 +463,7 @@ export default function WorkSpace({ forcedDiagramId } = {}) {
     isTemplate,
     loadedDiagramId,
     cloudOnly,
+    t,
   ]);
 
   const returnToCurrentDiagram = async () => {

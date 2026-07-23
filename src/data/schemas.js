@@ -223,4 +223,5 @@ export const ddbSchema = {
     date: { type: "string" },
     ...jsonSchema.properties,
   },
+  required: ["tables", "relationships", "notes", "subjectAreas"],
 };
