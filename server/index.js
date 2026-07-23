@@ -139,20 +139,52 @@ export function createApplication({ databasePath, staticPath } = {}) {
   return { app, server, websocket, database, store, tokens };
 }
 
+export function resolveHost(env = process.env) {
+  return env.HOST || "0.0.0.0";
+}
+
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
-  // Defense-in-depth, ONLY for the running server (not installed when tests
-  // import createApplication). The per-message try/catch in websocket.js is the
-  // real fix; these are last-resort logging so an unforeseen throw elsewhere
-  // logs instead of silently killing the shared collaboration process.
+  const port = Number.parseInt(process.env.PORT || "3000", 10);
+
+  // Startup failures must reach the service manager. Registering an
+  // uncaughtException handler suppresses node's default exit-on-throw, so the
+  // handlers below are installed only once startup has succeeded — otherwise a
+  // fail-closed refusal would exit 0 and systemd would read it as success.
+  let application;
+  try {
+    application = createApplication();
+  } catch (error) {
+    console.error("[collab] Failed to start:", error.message);
+    process.exit(1);
+  }
+
+  // Defense-in-depth for the *running* server (not installed when tests import
+  // createApplication). The per-message try/catch in websocket.js is the real
+  // fix; these are last-resort logging so an unforeseen throw elsewhere logs
+  // instead of silently killing the shared collaboration process.
   process.on("uncaughtException", (err) => {
     console.error("[collab] uncaughtException:", err);
   });
   process.on("unhandledRejection", (err) => {
     console.error("[collab] unhandledRejection:", err);
   });
-  const port = Number.parseInt(process.env.PORT || "3000", 10);
-  const { server } = createApplication();
-  server.listen(port, "0.0.0.0", () => {
-    console.log(`drawDB listening on http://0.0.0.0:${port}`);
+
+  // Bind failures (EADDRINUSE, EACCES, or EADDRNOTAVAIL when the configured
+  // HOST interface is not up yet) arrive as an 'error' event rather than a
+  // throw, so the uncaughtException handler above would otherwise swallow them
+  // and exit 0. Registered before listen() — the event can fire immediately.
+  //
+  // Guarded on `listening` deliberately: it is false for every bind failure,
+  // and true once the server is up. A post-listen 'error' is an accept failure
+  // (EMFILE/ENFILE, i.e. fd exhaustion), which is usually transient — logging
+  // and staying up beats dropping every live collaboration session.
+  application.server.on("error", (error) => {
+    console.error("[collab] Server error:", error.message);
+    if (!application.server.listening) process.exit(1);
+  });
+
+  const host = resolveHost();
+  application.server.listen(port, host, () => {
+    console.log(`drawDB listening on http://${host}:${port}`);
   });
 }
