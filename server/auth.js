@@ -11,7 +11,14 @@ export function loadTokens(source) {
       ? fs.readFileSync(process.env.COLLAB_TOKENS_FILE, "utf8")
       : process.env.COLLAB_TOKENS);
   if (!raw) return new Map();
-  const parsed = JSON.parse(raw);
+  let parsed;
+  try {
+    parsed = JSON.parse(raw);
+  } catch (e) {
+    throw new Error(
+      `Invalid COLLAB_TOKENS/COLLAB_TOKENS_FILE JSON: ${e.message}`,
+    );
+  }
   const map = new Map();
   for (const [token, identity] of Object.entries(parsed)) {
     if (

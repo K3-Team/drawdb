@@ -1,6 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { loadTokens, authenticateToken, requireAuth } from "./auth.js";
+import { createApplication } from "./index.js";
+
+/* global process */
 
 test("loadTokens parses a token map from JSON", () => {
   const tokens = loadTokens(
@@ -79,4 +82,48 @@ test("requireAuth returns 401 when tokens are configured and no/invalid Bearer i
   assert.equal(nextCalled, true);
   assert.equal(ctx.getStatus(), null);
   assert.equal(ctx.req.user.userId, "u1");
+});
+
+test("createApplication fails closed when auth is required but no tokens configured", () => {
+  const saved = {
+    COLLAB_REQUIRE_AUTH: process.env.COLLAB_REQUIRE_AUTH,
+    COLLAB_TOKENS: process.env.COLLAB_TOKENS,
+    COLLAB_TOKENS_FILE: process.env.COLLAB_TOKENS_FILE,
+    NODE_ENV: process.env.NODE_ENV,
+  };
+  const restore = () => {
+    for (const [key, value] of Object.entries(saved)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+  };
+
+  try {
+    delete process.env.COLLAB_TOKENS;
+    delete process.env.COLLAB_TOKENS_FILE;
+    delete process.env.NODE_ENV;
+
+    // Auth required + no tokens => throws (fail closed).
+    process.env.COLLAB_REQUIRE_AUTH = "1";
+    assert.throws(
+      () => createApplication({ databasePath: ":memory:" }),
+      /auth required but no tokens/i,
+    );
+
+    // Auth required + tokens configured => does NOT throw.
+    process.env.COLLAB_TOKENS =
+      '{"secretA":{"userId":"u1","displayName":"Ann","color":"#2563eb"}}';
+    const withTokens = createApplication({ databasePath: ":memory:" });
+    assert.equal(withTokens.tokens.size, 1);
+    withTokens.database.close();
+
+    // Neither flag nor tokens (dev) => does NOT throw, just warns.
+    delete process.env.COLLAB_REQUIRE_AUTH;
+    delete process.env.COLLAB_TOKENS;
+    const devMode = createApplication({ databasePath: ":memory:" });
+    assert.equal(devMode.tokens.size, 0);
+    devMode.database.close();
+  } finally {
+    restore();
+  }
 });

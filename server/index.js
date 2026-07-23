@@ -23,7 +23,17 @@ export function createApplication({ databasePath, staticPath } = {}) {
   app.use(express.json({ limit: MAX_DOCUMENT_BYTES }));
 
   const tokens = loadTokens();
+  const authRequired =
+    process.env.COLLAB_REQUIRE_AUTH === "1" ||
+    process.env.COLLAB_REQUIRE_AUTH === "true" ||
+    process.env.NODE_ENV === "production";
   if (tokens.size === 0) {
+    if (authRequired) {
+      console.error(
+        "[collab] Refusing to start: auth is required (COLLAB_REQUIRE_AUTH or NODE_ENV=production) but no valid COLLAB_TOKENS/COLLAB_TOKENS_FILE configured.",
+      );
+      throw new Error("Collaboration auth required but no tokens configured");
+    }
     console.warn(
       "[collab] No COLLAB_TOKENS configured — API is UNAUTHENTICATED (dev only).",
     );
