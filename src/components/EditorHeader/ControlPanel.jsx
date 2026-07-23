@@ -117,6 +117,22 @@ export default function ControlPanel({
     }));
     setModal(modalType);
   };
+
+  // Generate first, then open the modal: SQL exporters reject diagrams whose
+  // CHECK expressions could break out of the generated statement, and an empty
+  // modal with no explanation is worse than a toast.
+  const runExport = (generate, extension) => {
+    let src;
+    try {
+      src = generate();
+    } catch (e) {
+      Toast.error(e.message);
+      return;
+    }
+    openExportModal(MODAL.CODE);
+    setExportData((prev) => ({ ...prev, data: src, extension }));
+  };
+
   const [importFrom, setImportFrom] = useState(IMPORT_FROM.JSON);
   const { saveState, setSaveState } = useSaveState();
   const { layout, setLayout } = useLayout();
@@ -960,6 +976,14 @@ export default function ControlPanel({
       setLayout((p) => ({ ...p, header: true, sidebar: true, toolbar: true }));
   }, [fullscreen, setLayout]);
 
+  // Payload shared by every "export source" handler for GENERIC diagrams.
+  const genericDiagram = {
+    tables: tables,
+    references: relationships,
+    types: types,
+    database: database,
+  };
+
   const menu = {
     file: {
       new: {
@@ -1154,124 +1178,50 @@ export default function ControlPanel({
           children: [
             {
               name: "MySQL",
-              function: () => {
-                openExportModal(MODAL.CODE);
-                const src = jsonToMySQL({
-                  tables: tables,
-                  references: relationships,
-                  types: types,
-                  database: database,
-                });
-                setExportData((prev) => ({
-                  ...prev,
-                  data: src,
-                  extension: "sql",
-                }));
-              },
+              function: () =>
+                runExport(() => jsonToMySQL(genericDiagram), "sql"),
             },
             {
               name: "PostgreSQL",
-              function: () => {
-                openExportModal(MODAL.CODE);
-                const src = jsonToPostgreSQL({
-                  tables: tables,
-                  references: relationships,
-                  types: types,
-                  database: database,
-                });
-                setExportData((prev) => ({
-                  ...prev,
-                  data: src,
-                  extension: "sql",
-                }));
-              },
+              function: () =>
+                runExport(() => jsonToPostgreSQL(genericDiagram), "sql"),
             },
             {
               name: "SQLite",
-              function: () => {
-                openExportModal(MODAL.CODE);
-                const src = jsonToSQLite({
-                  tables: tables,
-                  references: relationships,
-                  types: types,
-                  database: database,
-                });
-                setExportData((prev) => ({
-                  ...prev,
-                  data: src,
-                  extension: "sql",
-                }));
-              },
+              function: () =>
+                runExport(() => jsonToSQLite(genericDiagram), "sql"),
             },
             {
               name: "MariaDB",
-              function: () => {
-                openExportModal(MODAL.CODE);
-                const src = jsonToMariaDB({
-                  tables: tables,
-                  references: relationships,
-                  types: types,
-                  database: database,
-                });
-                setExportData((prev) => ({
-                  ...prev,
-                  data: src,
-                  extension: "sql",
-                }));
-              },
+              function: () =>
+                runExport(() => jsonToMariaDB(genericDiagram), "sql"),
             },
             {
               name: "MSSQL",
-              function: () => {
-                openExportModal(MODAL.CODE);
-                const src = jsonToSQLServer({
-                  tables: tables,
-                  references: relationships,
-                  types: types,
-                  database: database,
-                });
-                setExportData((prev) => ({
-                  ...prev,
-                  data: src,
-                  extension: "sql",
-                }));
-              },
+              function: () =>
+                runExport(() => jsonToSQLServer(genericDiagram), "sql"),
             },
             {
               label: "Beta",
               name: "Oracle",
-              function: () => {
-                openExportModal(MODAL.CODE);
-                const src = jsonToOracleSQL({
-                  tables: tables,
-                  references: relationships,
-                  types: types,
-                  database: database,
-                });
-                setExportData((prev) => ({
-                  ...prev,
-                  data: src,
-                  extension: "sql",
-                }));
-              },
+              function: () =>
+                runExport(() => jsonToOracleSQL(genericDiagram), "sql"),
             },
           ],
         }),
         function: () => {
           if (database === DB.GENERIC) return;
-          openExportModal(MODAL.CODE);
-          const src = exportSQL({
-            tables: tables,
-            references: relationships,
-            types: types,
-            database: database,
-            enums: enums,
-          });
-          setExportData((prev) => ({
-            ...prev,
-            data: src,
-            extension: "sql",
-          }));
+          runExport(
+            () =>
+              exportSQL({
+                tables: tables,
+                references: relationships,
+                types: types,
+                database: database,
+                enums: enums,
+              }),
+            "sql",
+          );
         },
       },
       export_as: {

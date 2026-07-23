@@ -14,6 +14,13 @@ import { databases } from "../../data/databases";
 import { dbToTypes } from "../../data/datatypes";
 import { getRelationshipFields } from "../utils";
 
+// MSSQL system procedures (sp_addextendedproperty, sp_rename) take object names
+// as string literals, not as quoted identifiers, so a name containing ' must be
+// escaped by doubling it -- the same treatment mssql.js already applies.
+function mssqlLiteral(value) {
+  return escapeQuotes(String(value ?? ""));
+}
+
 function parseType(field, db) {
   let res = field.type;
   const meta = dbToTypes[db]?.[field.type];
@@ -167,7 +174,7 @@ function toTable(table, db) {
   } else if (db === DB.MSSQL && table.comment?.trim()) {
     extra = `
 EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'${escapeQuotes(table.comment).replace(/'/g, "''")}',
-  @level0type=N'SCHEMA',@level0name=N'dbo', @level1type=N'TABLE',@level1name=N'${table.name}';
+  @level0type=N'SCHEMA',@level0name=N'dbo', @level1type=N'TABLE',@level1name=N'${mssqlLiteral(table.name)}';
 GO`;
   }
 
@@ -448,10 +455,10 @@ export const generateMigrationSQL = (
                   );
                 } else if (database === DB.MSSQL) {
                   up.push(
-                    `EXEC sp_addextendedproperty @name=N'MS_Description', @value=N'${escapeQuotes(String(change.to ?? "")).replace(/'/g, "''")}', @level0type=N'SCHEMA',@level0name=N'dbo', @level1type=N'TABLE',@level1name=N'${name}', @level2type=N'COLUMN',@level2name=N'${columnName}';`,
+                    `EXEC sp_addextendedproperty @name=N'MS_Description', @value=N'${escapeQuotes(String(change.to ?? "")).replace(/'/g, "''")}', @level0type=N'SCHEMA',@level0name=N'dbo', @level1type=N'TABLE',@level1name=N'${mssqlLiteral(name)}', @level2type=N'COLUMN',@level2name=N'${mssqlLiteral(columnName)}';`,
                   );
                   down.push(
-                    `EXEC sp_addextendedproperty @name=N'MS_Description', @value=N'${escapeQuotes(String(change.from ?? "")).replace(/'/g, "''")}', @level0type=N'SCHEMA',@level0name=N'dbo', @level1type=N'TABLE',@level1name=N'${name}', @level2type=N'COLUMN',@level2name=N'${columnName}';`,
+                    `EXEC sp_addextendedproperty @name=N'MS_Description', @value=N'${escapeQuotes(String(change.from ?? "")).replace(/'/g, "''")}', @level0type=N'SCHEMA',@level0name=N'dbo', @level1type=N'TABLE',@level1name=N'${mssqlLiteral(name)}', @level2type=N'COLUMN',@level2name=N'${mssqlLiteral(columnName)}';`,
                   );
                 } else if (database === DB.SQLITE) {
                   up.push(
@@ -474,10 +481,10 @@ export const generateMigrationSQL = (
               case "name": {
                 if (database === DB.MSSQL) {
                   up.push(
-                    `EXEC sp_rename '${name}.${change.from}', '${change.to}', 'COLUMN';`,
+                    `EXEC sp_rename '${mssqlLiteral(name)}.${mssqlLiteral(change.from)}', '${mssqlLiteral(change.to)}', 'COLUMN';`,
                   );
                   down.push(
-                    `EXEC sp_rename '${name}.${change.to}', '${change.from}', 'COLUMN';`,
+                    `EXEC sp_rename '${mssqlLiteral(name)}.${mssqlLiteral(change.to)}', '${mssqlLiteral(change.from)}', 'COLUMN';`,
                   );
                 } else {
                   up.push(
@@ -728,10 +735,10 @@ export const generateMigrationSQL = (
               );
             } else if (database === DB.MSSQL) {
               up.push(
-                `EXEC sp_addextendedproperty @name=N'MS_Description', @value=N'${escapeQuotes(String(change.to ?? "")).replace(/'/g, "''")}', @level0type=N'SCHEMA',@level0name=N'dbo', @level1type=N'TABLE',@level1name=N'${name}';`,
+                `EXEC sp_addextendedproperty @name=N'MS_Description', @value=N'${escapeQuotes(String(change.to ?? "")).replace(/'/g, "''")}', @level0type=N'SCHEMA',@level0name=N'dbo', @level1type=N'TABLE',@level1name=N'${mssqlLiteral(name)}';`,
               );
               down.push(
-                `EXEC sp_addextendedproperty @name=N'MS_Description', @value=N'${escapeQuotes(String(change.from ?? "")).replace(/'/g, "''")}', @level0type=N'SCHEMA',@level0name=N'dbo', @level1type=N'TABLE',@level1name=N'${name}';`,
+                `EXEC sp_addextendedproperty @name=N'MS_Description', @value=N'${escapeQuotes(String(change.from ?? "")).replace(/'/g, "''")}', @level0type=N'SCHEMA',@level0name=N'dbo', @level1type=N'TABLE',@level1name=N'${mssqlLiteral(name)}';`,
               );
             } else if (database === DB.SQLITE) {
               up.push(
@@ -748,8 +755,8 @@ export const generateMigrationSQL = (
               up.push(`RENAME TABLE ${q(change.from)} TO ${q(change.to)};`);
               down.push(`RENAME TABLE ${q(change.to)} TO ${q(change.from)};`);
             } else if (database === DB.MSSQL) {
-              up.push(`EXEC sp_rename '${change.from}', '${change.to}';`);
-              down.push(`EXEC sp_rename '${change.to}', '${change.from}';`);
+              up.push(`EXEC sp_rename '${mssqlLiteral(change.from)}', '${mssqlLiteral(change.to)}';`);
+              down.push(`EXEC sp_rename '${mssqlLiteral(change.to)}', '${mssqlLiteral(change.from)}';`);
             } else {
               up.push(
                 `ALTER TABLE ${q(change.from)} RENAME TO ${q(change.to)};`,

@@ -72,4 +72,21 @@ describe("assertNoStatementBreak", () => {
     expect(() => assertNoStatementBreak("1=1 -- x")).toThrow();
     expect(() => assertNoStatementBreak("1=1 /* x */")).toThrow();
   });
+
+  it("names the offending expression so the user can fix it", () => {
+    expect(() => assertNoStatementBreak("1=1; DROP TABLE t")).toThrow(
+      /Refusing to generate SQL for: 1=1; DROP TABLE t/,
+    );
+  });
+
+  it("truncates a pathologically long expression", () => {
+    let message = "";
+    try {
+      assertNoStatementBreak(";".padEnd(500, "x"));
+    } catch (e) {
+      message = e.message;
+    }
+    expect(message).toContain("…");
+    expect(message.length).toBeLessThan(200);
+  });
 });

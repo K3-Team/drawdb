@@ -39,12 +39,19 @@ export function safeConstraint(value) {
 }
 
 const STATEMENT_BREAK_RE = /;|--|\/\*/;
+const MAX_REPORTED_LENGTH = 100;
 
 export function assertNoStatementBreak(expr) {
   const s = expr == null ? "" : String(expr);
   if (STATEMENT_BREAK_RE.test(s)) {
+    // The expression is attacker-controlled (it can arrive in an imported
+    // .ddb), so bound how much of it is echoed back into the UI.
+    const shown =
+      s.length > MAX_REPORTED_LENGTH
+        ? `${s.slice(0, MAX_REPORTED_LENGTH)}…`
+        : s;
     throw new Error(
-      "CHECK expression may not contain ';', '--' or '/*'. Refusing to generate SQL.",
+      `CHECK expression may not contain ';', '--' or '/*'. Refusing to generate SQL for: ${shown}`,
     );
   }
   return s;

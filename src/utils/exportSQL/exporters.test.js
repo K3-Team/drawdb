@@ -128,6 +128,73 @@ describe("generateMigrationSQL neutralises a hostile identifier", () => {
   });
 });
 
+// MSSQL emits object names into sp_addextendedproperty / sp_rename as string
+// literals rather than as bracketed identifiers, so a name containing a single
+// quote must be doubled or it closes the literal.
+describe("generateMigrationSQL escapes MSSQL string literals", () => {
+  const QUOTED = "o'brien'; DROP TABLE t; --";
+  const ESCAPED = QUOTED.split("'").join("''");
+
+  const table = {
+    id: 1,
+    name: QUOTED,
+    comment: "note",
+    inherits: [],
+    uniqueConstraints: [],
+    indices: [],
+    fields: [
+      {
+        id: 10,
+        name: QUOTED,
+        type: "VARCHAR",
+        size: "255",
+        notNull: false,
+        primary: false,
+        unique: false,
+        increment: false,
+        default: "",
+        check: "",
+        comment: "note",
+        values: [],
+      },
+    ],
+  };
+
+  // The generator recovers table/column names by parsing the diff path, so the
+  // payload has to live in the key as well as in the diagram objects.
+  const key = `tables[id=1,name=${QUOTED}]`;
+  const fieldKey = `fields[id=10,name=${QUOTED},type=VARCHAR]`;
+
+  const cases = [
+    ["new table comment", { [key]: { to: table, from: null } }],
+    ["table comment change", { [`${key}#comment`]: { to: "note", from: "" } }],
+    ["table rename", { [`${key}#name`]: { from: QUOTED, to: QUOTED } }],
+    [
+      "column comment change",
+      { [`${key}#${fieldKey}#comment`]: { to: "note", from: "" } },
+    ],
+    [
+      "column rename",
+      { [`${key}#${fieldKey}#name`]: { from: QUOTED, to: QUOTED } },
+    ],
+  ];
+
+  for (const [label, diff] of cases) {
+    it(`${label} cannot close the N'...' literal`, () => {
+      const { up } = generateMigrationSQL(diff, DB.MSSQL, {
+        from: { tables: [] },
+        to: { tables: [table] },
+      });
+
+      // Inside [bracketed identifiers] a bare ' is harmless, so drop those and
+      // check what is left: every remaining occurrence must be doubled.
+      const literals = up.replace(/\[[^\]]*\]/g, "[ident]");
+      expect(literals).toContain(ESCAPED);
+      expect(literals).not.toContain(QUOTED);
+    });
+  }
+});
+
 describe("CHECK expressions that can break the statement are refused", () => {
   it("throws instead of emitting an injected CHECK", () => {
     const d = diagram(DB.POSTGRES);

@@ -1,5 +1,13 @@
 import { useCallback, useState } from "react";
-import { Tabs, TabPane, Modal, Input, Tag, Spin } from "@douyinfe/semi-ui";
+import {
+  Tabs,
+  TabPane,
+  Modal,
+  Input,
+  Tag,
+  Spin,
+  Toast,
+} from "@douyinfe/semi-ui";
 import { DiffEditor } from "@monaco-editor/react";
 import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
@@ -69,9 +77,19 @@ export default function Migration({
       const diagramA = data.contentA ? JSON.parse(data.contentA) : {};
       const diagramB = data.contentB ? JSON.parse(data.contentB) : {};
       const database = diagramA.database;
-      setMigrationSQL(
-        generateMigrationSQL(diff, database, { from: diagramB, to: diagramA }),
-      );
+      try {
+        setMigrationSQL(
+          generateMigrationSQL(diff, database, {
+            from: diagramB,
+            to: diagramA,
+          }),
+        );
+      } catch (error) {
+        // The generator refuses diagrams whose CHECK expressions could break
+        // out of the statement; surface that instead of showing empty SQL.
+        Toast.error(error.message);
+        setMigrationSQL({ up: "", down: "" });
+      }
     } catch (error) {
       console.error(error);
     } finally {
