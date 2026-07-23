@@ -55,7 +55,7 @@ export default function WorkSpace({ forcedDiagramId } = {}) {
   const [showTokenModal, setShowTokenModal] = useState(false);
   const [tokenInput, setTokenInput] = useState("");
 
-  const pendingNewIdRef = useRef(null);
+  const creatingRef = useRef(false);
   const loadedIdRef = useRef(null);
   const saveTimerRef = useRef(null);
   const applyingRemoteRef = useRef(false);
@@ -181,25 +181,44 @@ export default function WorkSpace({ forcedDiagramId } = {}) {
     ],
   );
 
-  const save = useCallback(async () => {
-    const isNew = isTemplate || !loadedDiagramId || loadedDiagramId === "blank";
-    const targetId = isNew
-      ? (pendingNewIdRef.current ??= uuidv4())
-      : loadedDiagramId;
-    try {
-      if (isNew) {
-        const created = await diagramApi.create({
-          id: targetId,
-          name: title,
-          document: buildDocument(),
-        });
+  // Every canvas is created on the server up front (see createServerDiagram),
+  // so a shareable diagram always has an id and lives at /editor/diagrams/:id.
+  // A new blank/template route creates the diagram and redirects there; this
+  // helper is the single creation path.
+  const createServerDiagram = useCallback(
+    async ({ name, document }) => {
+      if (creatingRef.current) return;
+      creatingRef.current = true;
+      const id = uuidv4();
+      try {
+        const created = await diagramApi.create({ id, name, document });
         versionRef.current = created.version;
-        pendingNewIdRef.current = null;
-        navigate(`/diagrams/${targetId}`, { replace: true });
-      } else if (connectionState === "connected") {
+        navigate(`/editor/diagrams/${id}`, { replace: true });
+      } catch (error) {
+        creatingRef.current = false;
+        if (error?.status === 401) {
+          setShowTokenModal(true);
+          return;
+        }
+        console.warn("failed to create diagram:", error);
+        setSaveState(State.ERROR);
+        Toast.error(t("oops_smth_went_wrong"));
+      }
+    },
+    [navigate, versionRef, setSaveState, t],
+  );
+
+  // Persist an existing, server-backed diagram. Creation is handled up front by
+  // createServerDiagram, so save() only ever updates: it is a no-op until the
+  // canvas has a real diagram id (i.e. we are on /editor/diagrams/:id).
+  const save = useCallback(async () => {
+    if (creatingRef.current) return;
+    if (!isDiagram || !loadedDiagramId) return;
+    try {
+      if (connectionState === "connected") {
         await sendSnapshot(title, buildDocument());
       } else {
-        const updated = await diagramApi.update(targetId, {
+        const updated = await diagramApi.update(loadedDiagramId, {
           name: title,
           document: buildDocument(),
           baseVersion: versionRef.current,
@@ -210,16 +229,16 @@ export default function WorkSpace({ forcedDiagramId } = {}) {
       setLastSaved(new Date().toLocaleString());
     } catch (error) {
       if (error.diagram) applyDiagramState(error.diagram, { remote: true });
-      console.warn("server autosave failed:", error);
+      if (error?.status === 401) setShowTokenModal(true);
+      console.warn("server save failed:", error);
       setSaveState(State.ERROR);
     }
   }, [
     buildDocument,
     title,
     setSaveState,
-    isTemplate,
+    isDiagram,
     loadedDiagramId,
-    navigate,
     connectionState,
     sendSnapshot,
     versionRef,
@@ -247,6 +266,9 @@ export default function WorkSpace({ forcedDiagramId } = {}) {
     };
 
     const loadDiagram = async (id) => {
+      // We have a real, server-backed diagram now; clear the create guard so a
+      // later "New" can create again.
+      creatingRef.current = false;
       try {
         const diagram = await diagramApi.get(id);
         setLayout((prev) => ({ ...prev, readOnly: false }));
@@ -290,22 +312,30 @@ export default function WorkSpace({ forcedDiagramId } = {}) {
         .equals(id)
         .first();
       if (!template) {
+        // "blank" (and any unknown template id) has no stored content: pick a
+        // database first, then the modal creates a blank server diagram.
         if (previousLoadedId !== loadedIdRef.current) resetEditorState();
         if (selectedDb === "") setShowSelectDbModal(true);
         return;
       }
-      disconnect();
-      setDatabase(template.database || DB.GENERIC);
-      setTitle(template.title);
-      setTables(template.tables);
-      setRelationships(template.relationships);
-      setAreas(template.subjectAreas);
-      setNotes(template.notes);
-      setTransform({ zoom: 1, pan: { x: 0, y: 0 } });
-      setUndoStack([]);
-      setRedoStack([]);
-      setTypes(template.types ?? []);
-      setEnums(template.enums ?? []);
+      // Forking a template creates a fresh server-backed diagram from its
+      // content and redirects to /editor/diagrams/:id; the redirect's load()
+      // then fetches and connects to it.
+      const database = template.database || DB.GENERIC;
+      await createServerDiagram({
+        name: template.title ?? "Untitled diagram",
+        document: {
+          database,
+          tables: template.tables ?? [],
+          references: template.relationships ?? [],
+          notes: template.notes ?? [],
+          areas: template.subjectAreas ?? [],
+          pan: { x: 0, y: 0 },
+          zoom: 1,
+          ...(databases[database].hasEnums && { enums: template.enums ?? [] }),
+          ...(databases[database].hasTypes && { types: template.types ?? [] }),
+        },
+      });
     };
 
     if (!loadedDiagramId) {
@@ -343,6 +373,7 @@ export default function WorkSpace({ forcedDiagramId } = {}) {
     isDiagram,
     isTemplate,
     loadedDiagramId,
+    createServerDiagram,
   ]);
 
   const returnToCurrentDiagram = async () => {
@@ -502,8 +533,23 @@ export default function WorkSpace({ forcedDiagramId } = {}) {
         visible={showSelectDbModal}
         onOk={() => {
           if (selectedDb === "") return;
-          setDatabase(selectedDb);
           setShowSelectDbModal(false);
+          // Create the blank diagram on the server immediately, then redirect
+          // to /editor/diagrams/:id so it is shareable from the start.
+          createServerDiagram({
+            name: "Untitled diagram",
+            document: {
+              database: selectedDb,
+              tables: [],
+              references: [],
+              notes: [],
+              areas: [],
+              pan: { x: 0, y: 0 },
+              zoom: 1,
+              ...(databases[selectedDb].hasEnums && { enums: [] }),
+              ...(databases[selectedDb].hasTypes && { types: [] }),
+            },
+          });
         }}
         okButtonProps={{ disabled: selectedDb === "" }}
       >

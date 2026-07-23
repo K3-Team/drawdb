@@ -896,7 +896,7 @@ export default function ControlPanel({
           {t("saved_as_copy")}{" "}
           <Typography.Text
             link={{
-              href: `/diagrams/${newId}${window.location.search}`,
+              href: `/editor/diagrams/${newId}${window.location.search}`,
               target: "_blank",
               rel: "noopener noreferrer",
             }}
