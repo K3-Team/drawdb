@@ -223,7 +223,7 @@ export function jsonToMySQL(obj) {
                 field.increment ? " AUTO_INCREMENT" : ""
               }${field.unique ? " UNIQUE" : ""}${
                 field.default !== ""
-                  ? ` DEFAULT ${parseDefault(field, obj.database)}`
+                  ? ` DEFAULT ${parseDefault(field, DB.MYSQL)}`
                   : ""
               }${
                 field.check === "" ||
@@ -492,7 +492,7 @@ export function jsonToMariaDB(obj) {
                 field.increment ? " AUTO_INCREMENT" : ""
               }${field.unique ? " UNIQUE" : ""}${
                 field.default !== ""
-                  ? ` DEFAULT ${parseDefault(field, obj.database)}`
+                  ? ` DEFAULT ${parseDefault(field, DB.MARIADB)}`
                   : ""
               }${
                 field.check === "" ||

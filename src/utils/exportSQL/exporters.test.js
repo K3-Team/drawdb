@@ -632,3 +632,64 @@ describe("string literals cannot break out (MySQL backslash escape)", () => {
     expect(exportSQL(p)).toContain("DEFAULT 'C:\\temp'");
   });
 });
+
+// The generic (database-less) MySQL/MariaDB emitters run only for GENERIC
+// diagrams, so obj.database is always GENERIC. DEFAULT escaping must use the
+// literal OUTPUT dialect, not obj.database, or the MySQL backslash escape is
+// skipped and a `\'` default breaks out of the literal.
+describe("generic MySQL/MariaDB emitters escape DEFAULT for their output dialect", () => {
+  const PAYLOAD = "\\' ); DROP TABLE users; --";
+  const cases = [
+    ["jsonToMySQL", jsonToMySQL],
+    ["jsonToMariaDB", jsonToMariaDB],
+  ];
+
+  const genericDiagram = () => ({
+    database: DB.GENERIC,
+    references: [],
+    types: [],
+    enums: [],
+    tables: [
+      {
+        id: 1,
+        name: "t",
+        comment: "",
+        inherits: [],
+        uniqueConstraints: [],
+        indices: [],
+        fields: [
+          {
+            id: 10,
+            name: "col",
+            type: "VARCHAR",
+            size: "255",
+            notNull: false,
+            primary: false,
+            unique: false,
+            increment: false,
+            default: PAYLOAD,
+            check: "",
+            comment: "",
+            values: [],
+          },
+        ],
+      },
+    ],
+  });
+
+  for (const [label, fn] of cases) {
+    it(`${label} contains a backslash payload inside the DEFAULT literal`, () => {
+      const sql = fn(genericDiagram());
+      // Strip MySQL-escaped '...' spans (\\. and '' are in-literal); the DROP
+      // must be gone, i.e. it never escaped the literal.
+      const unquoted = sql.replace(/'(?:\\.|''|[^'\\])*'/g, "''");
+      expect(unquoted).not.toContain("DROP TABLE users");
+    });
+
+    it(`${label} round-trips a windows path default`, () => {
+      const d = genericDiagram();
+      d.tables[0].fields[0].default = "C:\\temp";
+      expect(fn(d)).toContain("DEFAULT 'C:\\\\temp'");
+    });
+  }
+});
