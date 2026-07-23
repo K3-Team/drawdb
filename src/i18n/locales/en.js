@@ -250,6 +250,9 @@ const en = {
     failed_to_load: "Failed to load. Make sure the link is correct.",
     share_info:
       "* Sharing this link will not create a live real-time collaboration session.",
+    share_upload_notice:
+      "Generating a link uploads this diagram to the configured backend.",
+    generate_share_link: "Generate share link",
     show_relationship_labels: "Show relationship labels",
     docs: "Docs",
     supported_types: "Supported file types:",

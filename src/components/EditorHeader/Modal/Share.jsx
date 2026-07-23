@@ -21,7 +21,7 @@ import { queryConfig } from "../../../utils/queryConfig";
 export default function Share({ title, setModal }) {
   const { t } = useTranslation();
   const { gistId, setGistId } = useContext(IdContext);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const { tables, relationships, database } = useDiagram();
   const { notes } = useNotes();
   const { areas } = useAreas();
@@ -105,27 +105,27 @@ export default function Share({ title, setModal }) {
     }
   }, [gistId, setModal, setGistId]);
 
-  useEffect(() => {
-    if (customContent) {
-      setLoading(false);
-      return;
-    }
-    const updateOrGenerateLink = async () => {
-      try {
-        setLoading(true);
-        if (!gistId || gistId === "") {
-          const id = await create(SHARE_FILENAME, diagramToString());
-          setGistId(id);
-        } else {
-          await patch(gistId, SHARE_FILENAME, diagramToString());
-        }
-      } catch (e) {
-        setError(e);
-      } finally {
-        setLoading(false);
+  const generateLink = useCallback(async () => {
+    try {
+      setLoading(true);
+      if (!gistId || gistId === "") {
+        const id = await create(SHARE_FILENAME, diagramToString());
+        setGistId(id);
+      } else {
+        await patch(gistId, SHARE_FILENAME, diagramToString());
       }
-    };
-    updateOrGenerateLink();
+    } catch (e) {
+      setError(e);
+    } finally {
+      setLoading(false);
+    }
+  }, [gistId, setGistId, diagramToString]);
+
+  useEffect(() => {
+    if (customContent) return;
+    if (gistId && gistId !== "") {
+      generateLink();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -161,7 +161,15 @@ export default function Share({ title, setModal }) {
           fullMode={false}
         />
       )}
-      {!loading && !error && (
+      {!loading && !error && (!gistId || gistId === "") && (
+        <div className="text-center space-y-3">
+          <div className="opacity-80">{t("share_upload_notice")}</div>
+          <Button type="primary" onClick={generateLink}>
+            {t("generate_share_link")}
+          </Button>
+        </div>
+      )}
+      {!loading && !error && gistId && gistId !== "" && (
         <>
           <div className="flex gap-3">
             <Input value={url} size="large" readonly />
