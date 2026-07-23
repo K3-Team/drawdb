@@ -115,6 +115,18 @@ export default function ControlPanel({
     }));
     setModal(modalType);
   };
+  const runExport = (generate, extension) => {
+    let src;
+    try {
+      src = generate();
+    } catch (e) {
+      console.error(e);
+      Toast.error(t("export_failed", { message: e.message }));
+      return;
+    }
+    openExportModal(MODAL.CODE);
+    setExportData((prev) => ({ ...prev, data: src, extension }));
+  };
   const [importFrom, setImportFrom] = useState(IMPORT_FROM.JSON);
   const { saveState, setSaveState } = useSaveState();
   const { layout, setLayout } = useLayout();
@@ -804,7 +816,7 @@ export default function ControlPanel({
           y: obj.y + 20,
           id: areas.length,
         });
-      } else if (v.validate(obj, noteSchema)) {
+      } else if (v.validate(obj, noteSchema).valid) {
         addNote({
           ...obj,
           x: obj.x + 20,
@@ -1092,124 +1104,104 @@ export default function ControlPanel({
           children: [
             {
               name: "MySQL",
-              function: () => {
-                openExportModal(MODAL.CODE);
-                const src = jsonToMySQL({
-                  tables: tables,
-                  references: relationships,
-                  types: types,
-                  database: database,
-                });
-                setExportData((prev) => ({
-                  ...prev,
-                  data: src,
-                  extension: "sql",
-                }));
-              },
+              function: () =>
+                runExport(
+                  () =>
+                    jsonToMySQL({
+                      tables: tables,
+                      references: relationships,
+                      types: types,
+                      database: database,
+                    }),
+                  "sql",
+                ),
             },
             {
               name: "PostgreSQL",
-              function: () => {
-                openExportModal(MODAL.CODE);
-                const src = jsonToPostgreSQL({
-                  tables: tables,
-                  references: relationships,
-                  types: types,
-                  database: database,
-                });
-                setExportData((prev) => ({
-                  ...prev,
-                  data: src,
-                  extension: "sql",
-                }));
-              },
+              function: () =>
+                runExport(
+                  () =>
+                    jsonToPostgreSQL({
+                      tables: tables,
+                      references: relationships,
+                      types: types,
+                      database: database,
+                    }),
+                  "sql",
+                ),
             },
             {
               name: "SQLite",
-              function: () => {
-                openExportModal(MODAL.CODE);
-                const src = jsonToSQLite({
-                  tables: tables,
-                  references: relationships,
-                  types: types,
-                  database: database,
-                });
-                setExportData((prev) => ({
-                  ...prev,
-                  data: src,
-                  extension: "sql",
-                }));
-              },
+              function: () =>
+                runExport(
+                  () =>
+                    jsonToSQLite({
+                      tables: tables,
+                      references: relationships,
+                      types: types,
+                      database: database,
+                    }),
+                  "sql",
+                ),
             },
             {
               name: "MariaDB",
-              function: () => {
-                openExportModal(MODAL.CODE);
-                const src = jsonToMariaDB({
-                  tables: tables,
-                  references: relationships,
-                  types: types,
-                  database: database,
-                });
-                setExportData((prev) => ({
-                  ...prev,
-                  data: src,
-                  extension: "sql",
-                }));
-              },
+              function: () =>
+                runExport(
+                  () =>
+                    jsonToMariaDB({
+                      tables: tables,
+                      references: relationships,
+                      types: types,
+                      database: database,
+                    }),
+                  "sql",
+                ),
             },
             {
               name: "MSSQL",
-              function: () => {
-                openExportModal(MODAL.CODE);
-                const src = jsonToSQLServer({
-                  tables: tables,
-                  references: relationships,
-                  types: types,
-                  database: database,
-                });
-                setExportData((prev) => ({
-                  ...prev,
-                  data: src,
-                  extension: "sql",
-                }));
-              },
+              function: () =>
+                runExport(
+                  () =>
+                    jsonToSQLServer({
+                      tables: tables,
+                      references: relationships,
+                      types: types,
+                      database: database,
+                    }),
+                  "sql",
+                ),
             },
             {
               label: "Beta",
               name: "Oracle",
-              function: () => {
-                openExportModal(MODAL.CODE);
-                const src = jsonToOracleSQL({
-                  tables: tables,
-                  references: relationships,
-                  types: types,
-                  database: database,
-                });
-                setExportData((prev) => ({
-                  ...prev,
-                  data: src,
-                  extension: "sql",
-                }));
-              },
+              function: () =>
+                runExport(
+                  () =>
+                    jsonToOracleSQL({
+                      tables: tables,
+                      references: relationships,
+                      types: types,
+                      database: database,
+                    }),
+                  "sql",
+                ),
             },
           ],
         }),
         function: () => {
           if (database === DB.GENERIC) return;
-          openExportModal(MODAL.CODE);
-          const src = exportSQL({
-            tables: tables,
-            references: relationships,
-            types: types,
-            database: database,
-            enums: enums,
-          });
-          setExportData((prev) => ({
-            ...prev,
-            data: src,
-            extension: "sql",
-          }));
+          runExport(
+            () =>
+              exportSQL({
+                tables: tables,
+                references: relationships,
+                types: types,
+                database: database,
+                enums: enums,
+              }),
+            "sql",
+          );
         },
       },
       export_as: {
