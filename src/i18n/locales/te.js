@@ -6,7 +6,6 @@ const telugu = {
 
 const te = {
   translation: {
-    report_bug: "బగ్ నివేదించండి",
     import_from: "దిగుమతి",
     import: "దిగుమతి",
     file: "ఫైల్",

@@ -6,7 +6,6 @@ const japanese = {
 
 const jp = {
   translation: {
-    report_bug: "バグを報告",
     import_from: "インポート",
     import: "インポート",
     file: "ファイル",

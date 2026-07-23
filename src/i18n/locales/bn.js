@@ -6,7 +6,6 @@ const bengali = {
 
 const bn = {
   translation: {
-    report_bug: "বাগ রিপোর্ট করুন",
     import: "ইম্পোর্ট করুন",
     inherits: "উত্তরাধিকার",
     merging_column_w_inherited_definition:

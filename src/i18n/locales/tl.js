@@ -6,7 +6,6 @@ const filipino = {
 
 const tl = {
   translation: {
-    report_bug: "I-report ang bug",
     import: "I-import",
     inherits: "Namamana mula sa",
     merging_column_w_inherited_definition:

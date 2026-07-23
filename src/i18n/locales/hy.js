@@ -6,7 +6,6 @@ const armenian = {
 
 const hy = {
   translation: {
-    report_bug: "Զեկուցել սխալի մասին",
     import_from: "Ներմուծել",
     import: "Ներմուծել",
     file: "Ֆայլ",

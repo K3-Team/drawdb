@@ -6,7 +6,6 @@ const hebrew = {
 
 const he = {
   translation: {
-    report_bug: "דווח על באג",
     import_from: "ייבוא",
     import: "ייבוא",
     file: "קובץ",

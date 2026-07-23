@@ -6,7 +6,6 @@ const malayalam = {
 
 const ml = {
     translation: {
-        report_bug: "ബഗ് റിപ്പോർട്ട് ചെയ്യുക",
         import: "ഇമ്പോർട്ട്",
         inherits: "പാരമ്പര്യമായി ലഭിക്കുന്നു",
         merging_column_w_inherited_definition: "'{{tableName}}' ടേബിളിലെ '{{fieldName}}' കോളം പാരമ്പര്യ നിർവ്വചനത്തോട് ലയിപ്പിക്കും",

@@ -6,7 +6,6 @@ const finnish = {
 
 const fi = {
   translation: {
-    report_bug: "Ilmoita virheestä",
     import: "Tuo",
     inherits: "Perii",
     merging_column_w_inherited_definition:

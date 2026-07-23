@@ -6,7 +6,6 @@ const urdu = {
 
 const ur = {
   translation: {
-    report_bug: "بگ رپورٹ کریں",
     import: "درآمد کریں",
     inherits: "وراثت",
     merging_column_w_inherited_definition:

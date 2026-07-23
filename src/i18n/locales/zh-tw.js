@@ -6,7 +6,6 @@ const traditionalChinese = {
 
 const zh_tw = {
   translation: {
-    report_bug: "回報問題",
     import: "匯入",
     inherits: "繼承",
     merging_column_w_inherited_definition:

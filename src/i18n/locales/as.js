@@ -8,7 +8,6 @@ const assamese = {
 
 const as = {
     translation: {
-      report_bug: "এক টো সমস্যা প্ৰতিবেদন কৰক",
       import: "আমদানি",
       inherits: "উত্তৰাধিকাৰ লয়া কৰিছে",
       merging_column_w_inherited_definition:

@@ -6,7 +6,6 @@ const vietnamese = {
 
 const vi = {
   translation: {
-    report_bug: "Báo cáo lỗi",
     import_from: "Nhập từ",
     import: "Nhập",
     inherits: "Kế thừa",

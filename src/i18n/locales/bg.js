@@ -6,7 +6,6 @@ const bulgarian = {
 
 const bg = {
     translation: {
-        report_bug: "Докладвай грешка",
         import: "Импорт",
         inherits: "Наследява",
         merging_column_w_inherited_definition:

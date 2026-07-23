@@ -7,7 +7,6 @@ const greek = {
 
 const el = {
   translation: {
-    report_bug: "Αναφορά σφάλματος",
     import_from: "Εισαγωγή από",
     import: "Εισαγωγή",
     file: "Αρχείο",

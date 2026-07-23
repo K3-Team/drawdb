@@ -6,7 +6,6 @@ const norwegian = {
 
 const no = {
   translation: {
-    report_bug: "Rapporter en feil",
     import_from: "Importer",
     import: "Importer",
     file: "Fil",

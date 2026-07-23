@@ -6,7 +6,6 @@ const tamil = {
 
 const tm = {
   translation: {
-    report_bug: "பிழையை புகாரளி",
     import: "இறக்குமதி",
     inherits: "பரம்பரையாகப் பெறுகிறது",
     merging_column_w_inherited_definition:

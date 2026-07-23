@@ -6,7 +6,6 @@ const ukrainian = {
 
 const uk = {
   translation: {
-    report_bug: "Повідомити про помилку",
     import: "Імпортувати",
     inherits: "Успадковує",
     merging_column_w_inherited_definition:

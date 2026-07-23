@@ -6,7 +6,6 @@ const italian = {
 
 const it = {
   translation: {
-    report_bug: "Segnalare un bug",
     import_from: "Importa",
     import: "Importa",
     file: "File",

@@ -38,8 +38,6 @@ This section guides you through submitting an enhancement suggestion for our pro
 
 ### Submitting Pull Requests
 
-If you would like to implement a big feature that has not been discussed before please reach out to the maintainer on Discord at @dottle_ or send an email to drawdb@outlook.com.
-
 Please follow these steps to have your contribution considered by the maintainers:
 
 1. Make sure the pull request you work on is atomic. That is, it implements a single feature or fixes a single bug.
@@ -76,13 +74,6 @@ This section lists the labels we use to help organize and identify issues and pu
 - `documentation`: Improvements or additions to documentation.
 - `good first issue`: Good for newcomers.
 - `help wanted`: Extra attention is needed.
-
-### Getting Help
-
-If you have any questions, please feel free to reach out to us through the following channels:
-
-- [Discord](https://discord.gg/BrjZgNrmR6)
-- [Email](drawdb@outlook.com)
 
 ---
 

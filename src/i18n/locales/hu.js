@@ -6,7 +6,6 @@ const hungarian = {
 
 const hu = {
   translation: {
-    report_bug: "Hiba jelentése",
     import: "Importálás",
     inherits: "Öröklődések",
     merging_column_w_inherited_definition:

@@ -6,7 +6,6 @@ const czech = {
 
 const cz = {
   translation: {
-    report_bug: "Nahlásit chybu",
     import: "Importovat",
     import_from: "Importovat z",
     file: "Soubor",

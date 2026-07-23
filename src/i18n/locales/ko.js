@@ -6,7 +6,6 @@ const korean = {
 
 const ko = {
   translation: {
-    report_bug: "문제 보고",
     import_from: "가져오기",
     import: "가져오기",
     file: "파일",

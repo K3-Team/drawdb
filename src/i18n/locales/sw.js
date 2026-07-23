@@ -6,7 +6,6 @@ const swahili = {
 
 const sw = {
   translation: {
-    report_bug: "Ripoti hitilafu",
     import_from: "Leta kutoka",
     import: "Leta",
     inherits: "Inarithi",

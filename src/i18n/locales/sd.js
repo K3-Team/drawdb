@@ -6,7 +6,6 @@ const sindhi = {
 
 const sd = {
   translation: {
-    report_bug: "بگ رپورٽ ڪريو",
     import: "درآمد ڪريو",
     inherits: "وارثت ۾ حاصل ٿيل",
     merging_column_w_inherited_definition:

@@ -6,7 +6,6 @@ const uyghur = {
 
 const ug = {
   translation: {
-    report_bug: "بۇغ رېپورت قىلىڭ",
     import_from: "ئېكىر",
     import: "ئېكىر",
     file: "ھۆججەت",

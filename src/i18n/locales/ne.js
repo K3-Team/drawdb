@@ -6,7 +6,6 @@ const nepali = {
 
 const ne = {
   translation: {
-    report_bug: "बग रिपोर्ट गर्नुहोस्",
     import_from: "इम्पोर्ट गर्नुहोस्",
     import: "इम्पोर्ट गर्नुहोस्",
     file: "फाइल",

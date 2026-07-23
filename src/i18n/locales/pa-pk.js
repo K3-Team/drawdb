@@ -6,7 +6,6 @@ const punjabipk = {
 
 const pa_pk = {
   translation: {
-    report_bug: "مسئلہ رپورٹ کرو",
     import: "منگاؤ",
     inherits: "وراثت",
     merging_column_w_inherited_definition:

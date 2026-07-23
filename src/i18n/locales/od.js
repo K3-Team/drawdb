@@ -6,7 +6,6 @@ const odia = {
 
 const od = {
   translation: {
-    report_bug: "ବଗ୍ ରିପୋର୍ଟ କରନ୍ତୁ",
     import_from: "ଆମଦାନି",
     import: "ଆମଦାନି",
     file: "ଫାଇଲ୍",

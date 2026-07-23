@@ -6,7 +6,6 @@ const russian = {
 
 const ru = {
   translation: {
-    report_bug: "Сообщить об ошибке",
     import_from: "Импорт",
     import: "Импорт",
     file: "Файл",

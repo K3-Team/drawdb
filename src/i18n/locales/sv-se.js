@@ -6,7 +6,6 @@ const swedish = {
 
 const sv = {
   translation: {
-    report_bug: "Rapportera ett fel",
     import_from: "Importera",
     import: "Importera",
     file: "Fil",

@@ -6,7 +6,6 @@ const mongolian = {
 
 const mn = {
   translation: {
-    report_bug: "Алдаа мэдээлэх",
     import: "Импорт",
     inherits: "Өвлөн авна",
     merging_column_w_inherited_definition:

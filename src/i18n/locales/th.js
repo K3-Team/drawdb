@@ -6,7 +6,6 @@ const thai = {
 
 const th = {
   translation: {
-    report_bug: "รายงานข้อผิดพลาด",
     import: "นำเข้า",
     inherits: "สืบทอด",
     merging_column_w_inherited_definition:

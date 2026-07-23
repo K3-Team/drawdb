@@ -6,7 +6,6 @@ const punjabi = {
 
 const pa = {
   translation: {
-    report_bug: "ਬੱਗ ਦੀ ਰਿਪੋਰਟ ਕਰੋ",
     import: "ਇੰਪੋਰਟ ਕਰੋ",
     import_from: "ਇੰਪੋਰਟ ਤੋਂ",
     inherits: "ਵਿਰਾਸਤ ਵਿੱਚ ਮਿਲਿਆ",

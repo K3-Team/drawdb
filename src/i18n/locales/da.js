@@ -6,7 +6,6 @@ const danish = {
 
 const da = {
   translation: {
-    report_bug: "Rapportér en fejl",
     import: "Importér",
     inherits: "Arver",
     merging_column_w_inherited_definition:

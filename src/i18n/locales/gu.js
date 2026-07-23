@@ -6,7 +6,6 @@ const gujarati = {
 
 const gu = {
   translation: {
-    report_bug: "બગ રિપોર્ટ કરો",
     import: "આયાત",
     inherits: "વારસામાં મળે છે",
     merging_column_w_inherited_definition:

@@ -6,7 +6,6 @@ const indonesian = {
 
 const id = {
   translation: {
-    report_bug: "Laporkan bug",
     import_from: "Impor",
     import: "Impor",
     file: "Berkas",

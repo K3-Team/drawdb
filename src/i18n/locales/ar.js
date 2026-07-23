@@ -6,7 +6,6 @@ const arabic = {
 
 const ar = {
   translation: {
-    report_bug: "الإبلاغ عن خطأ",
     import_from: "استيراد",
     import: "استيراد",
     file: "ملف",

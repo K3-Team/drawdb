@@ -6,7 +6,6 @@ const english = {
 
 const en = {
   translation: {
-    report_bug: "Report a bug",
     import: "Import",
     inherits: "Inherits",
     merging_column_w_inherited_definition:

@@ -6,7 +6,6 @@ const kannada = {
 
 const ka = {
   translation: {
-    report_bug: "ದೋಷವನ್ನು ವರದಿ ಮಾಡಿ",
     import: "ಆಮದು",
     inherits: "ಪಡೆಯುತ್ತದೆ",
     merging_column_w_inherited_definition:

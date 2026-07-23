@@ -6,7 +6,6 @@ const german = {
 
 const de = {
   translation: {
-    report_bug: "Einen Fehler melden",
     import: "Importieren",
     import_from: "Importieren",
     file: "Datei",

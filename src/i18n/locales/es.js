@@ -6,7 +6,6 @@ const spanish = {
 
 const es = {
   translation: {
-    report_bug: "Reportar error",
     import: "Importar",
     inherits: "Hereda",
     merging_column_w_inherited_definition:

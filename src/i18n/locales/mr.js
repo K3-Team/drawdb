@@ -6,7 +6,6 @@ const marathi = {
 
 const mr = {
   translation: {
-    report_bug: "बग रिपोर्ट करा",
     import_from: "आयात",
     import: "आयात",
     file: "फाइल",

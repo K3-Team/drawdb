@@ -6,7 +6,6 @@ const malay = {
 
 const ms = {
   translation: {
-    report_bug: "Laporkan pepijat",
     import_from: "Import dari",
     import: "Import",
     file: "Fail",

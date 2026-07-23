@@ -6,7 +6,6 @@ const dutch = {
 
 const nl = {
   translation: {
-    report_bug: "Meld een bug",
     import: "Importeren",
     inherits: "Erft van",
     merging_column_w_inherited_definition:
