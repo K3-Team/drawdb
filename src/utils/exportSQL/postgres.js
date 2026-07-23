@@ -30,8 +30,8 @@ export function toPostgres(diagram) {
   const typeStatements = diagram.types
     .map(
       (type) =>
-        `CREATE TYPE ${type.name} AS (\n${type.fields
-          .map((f) => `\t${f.name} ${f.type}`)
+        `CREATE TYPE ${q(type.name)} AS (\n${type.fields
+          .map((f) => `\t${q(f.name)} ${assertSafeType(f.type)}`)
           .join(",\n")}\n);\n\n${
           type.comment?.trim()
             ? `COMMENT ON TYPE ${q(type.name)} IS '${escapeQuotes(type.comment)}';\n`

@@ -42,8 +42,8 @@ export function exportFieldComment(comment) {
     return "";
   }
 
-  return comment
-    .split("\n")
+  return String(comment)
+    .split(/\r\n|[\r\n]/)
     .map((commentLine) => `\t-- ${commentLine}\n`)
     .join("");
 }

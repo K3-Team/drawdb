@@ -8,6 +8,7 @@ import {
   quoterFor,
   assertNoStatementBreak,
   assertSafeType,
+  sqlBlockComment,
 } from "./identifiers";
 
 import { dbToTypes } from "../../data/datatypes";
@@ -20,7 +21,7 @@ export function toSqlite(diagram) {
     .map((table) => {
       const inlineFK = getInlineFK(table, diagram, q);
       return `${
-        table.comment === "" ? "" : `/* ${table.comment} */\n`
+        table.comment === "" ? "" : `/* ${sqlBlockComment(table.comment)} */\n`
       }CREATE TABLE IF NOT EXISTS ${q(table.name)} (\n${table.fields
         .map(
           (field) =>

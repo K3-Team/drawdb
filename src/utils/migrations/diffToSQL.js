@@ -10,6 +10,8 @@ import {
   assertNoStatementBreak,
   assertSafeSize,
   assertSafeType,
+  sqlBlockComment,
+  sqlLineComment,
 } from "../exportSQL/identifiers";
 import { DB } from "../../data/constants";
 import { databases } from "../../data/databases";
@@ -190,7 +192,7 @@ GO`;
 
   const prefix =
     db === DB.SQLITE && table.comment?.trim()
-      ? `/* ${escapeQuotes(table.comment)} */\n`
+      ? `/* ${sqlBlockComment(table.comment)} */\n`
       : "";
   return [prefix, create, extra, indexStmts].filter(Boolean).join("\n");
 }
@@ -466,10 +468,10 @@ export const generateMigrationSQL = (
                   );
                 } else if (database === DB.SQLITE) {
                   up.push(
-                    `-- ${escapeQuotes(String(change.to ?? ""))};`,
+                    `-- ${sqlLineComment(change.to)};`,
                   );
                   down.push(
-                    `-- ${escapeQuotes(String(change.from ?? ""))};`,
+                    `-- ${sqlLineComment(change.from)};`,
                   );
                 } else {
                   up.push(
@@ -746,10 +748,10 @@ export const generateMigrationSQL = (
               );
             } else if (database === DB.SQLITE) {
               up.push(
-                `-- TABLE COMMENT: ${escapeQuotes(String(change.to ?? ""))}`,
+                `-- TABLE COMMENT: ${sqlLineComment(change.to)}`,
               );
               down.push(
-                `-- TABLE COMMENT: ${escapeQuotes(String(change.from ?? ""))}`,
+                `-- TABLE COMMENT: ${sqlLineComment(change.from)}`,
               );
             }
           }

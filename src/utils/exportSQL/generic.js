@@ -14,6 +14,8 @@ import {
   assertNoStatementBreak,
   assertSafeSize,
   assertSafeType,
+  sqlBlockComment,
+  sqlLineComment,
 } from "./identifiers";
 
 export function getJsonType(f) {
@@ -35,11 +37,11 @@ export function getJsonType(f) {
       return '{ "type" : "object", "additionalProperties" : true }';
     case "ENUM":
       return `{\n\t\t\t\t\t"type" : "string",\n\t\t\t\t\t"enum" : [${f.values
-        .map((v) => `"${v}"`)
+        .map((v) => JSON.stringify(String(v)))
         .join(", ")}]\n\t\t\t\t}`;
     case "SET":
       return `{\n\t\t\t\t\t"type": "array",\n\t\t\t\t\t"items": {\n\t\t\t\t\t\t"type": "string",\n\t\t\t\t\t\t"enum": [${f.values
-        .map((v) => `"${v}"`)
+        .map((v) => JSON.stringify(String(v)))
         .join(", ")}]\n\t\t\t\t\t}\n\t\t\t\t}`;
     default:
       return '{ "type" : "string"}';
@@ -48,7 +50,7 @@ export function getJsonType(f) {
 
 export function generateSchema(type) {
   return `{\n\t\t\t"$schema": "http://json-schema.org/draft-04/schema#",\n\t\t\t"type": "object",\n\t\t\t"properties": {\n\t\t\t\t${type.fields
-    .map((f) => `"${f.name}" : ${getJsonType(f)}`)
+    .map((f) => `${JSON.stringify(String(f.name))} : ${getJsonType(f)}`)
     .join(
       ",\n\t\t\t\t",
     )}\n\t\t\t},\n\t\t\t"additionalProperties": false\n\t\t}`;
@@ -90,10 +92,10 @@ export function getTypeString(
       return "bigserial";
     }
     if (field.type === "ENUM") {
-      return `${field.name}_t`;
+      return quoteIdentifier(`${field.name}_t`, DB.POSTGRES);
     }
     if (field.type === "SET") {
-      return `${field.name}_t[]`;
+      return `${quoteIdentifier(`${field.name}_t`, DB.POSTGRES)}[]`;
     }
     if (field.type === "TIMESTAMP") {
       return "TIMESTAMPTZ";
@@ -183,8 +185,7 @@ export function getTypeString(
         break;
       case "SET":
       case "ENUM":
-        oracleType = field.name + "_t";
-        break;
+        return quoteIdentifier(`${field.name}_t`, DB.ORACLESQL);
       default:
         oracleType = assertSafeType(field.type);
         break;
@@ -223,11 +224,13 @@ export function jsonToMySQL(obj) {
                 field.check === "" ||
                 !dbToTypes[obj.database][field.type].hasCheck
                   ? !Object.keys(defaultTypes).includes(field.type)
-                    ? ` CHECK(\n\t\tJSON_SCHEMA_VALID("${generateSchema(
-                        obj.types.find(
-                          (t) => t.name === field.type.toLowerCase(),
+                    ? ` CHECK(\n\t\tJSON_SCHEMA_VALID('${escapeQuotes(
+                        generateSchema(
+                          obj.types.find(
+                            (t) => t.name === field.type.toLowerCase(),
+                          ),
                         ),
-                      )}", ${q(field.name)}))`
+                      )}', ${q(field.name)}))`
                     : ""
                   : ` CHECK(${assertNoStatementBreak(field.check)})`
               }${field.comment ? ` COMMENT '${escapeQuotes(field.comment)}'` : ""}`,
@@ -265,7 +268,9 @@ export function jsonToMySQL(obj) {
         .map((c) => q(c))
         .join(", ")}) REFERENCES ${q(endName)}(${endColumns
         .map((c) => q(c))
-        .join(", ")})\nON UPDATE ${safeConstraint(r.updateConstraint)} ON DELETE ${safeConstraint(r.deleteConstraint)};`;
+        .join(
+          ", ",
+        )})\nON UPDATE ${safeConstraint(r.updateConstraint)} ON DELETE ${safeConstraint(r.deleteConstraint)};`;
     })
     .join("\n")}`;
 }
@@ -287,21 +292,25 @@ export function jsonToPostgreSQL(obj) {
       return (
         typeStatements.join("") +
         `${
-          type.comment === "" ? "" : `/**\n${type.comment}\n*/\n`
-        }CREATE TYPE ${type.name} AS (\n${type.fields
+          type.comment === ""
+            ? ""
+            : `/**\n${sqlBlockComment(type.comment)}\n*/\n`
+        }CREATE TYPE ${q(type.name)} AS (\n${type.fields
           .map(
-            (f) => `\t${f.name} ${getTypeString(f, obj.database, DB.POSTGRES)}`,
+            (f) =>
+              `\t${q(f.name)} ${getTypeString(f, obj.database, DB.POSTGRES)}`,
           )
           .join("\n")}\n);`
       );
     } else {
-      return `CREATE TYPE ${type.name} AS (\n${type.fields
+      return `CREATE TYPE ${q(type.name)} AS (\n${type.fields
         .map(
-          (f) => `\t${f.name} ${getTypeString(f, obj.database, DB.POSTGRES)}`,
+          (f) =>
+            `\t${q(f.name)} ${getTypeString(f, obj.database, DB.POSTGRES)}`,
         )
         .join(",\n")}\n);\n${
         type.comment && type.comment.trim() != ""
-          ? `\nCOMMENT ON TYPE ${type.name} IS '${escapeQuotes(type.comment)}';\n`
+          ? `\nCOMMENT ON TYPE ${q(type.name)} IS '${escapeQuotes(type.comment)}';\n`
           : ""
       }`;
     }
@@ -324,7 +333,7 @@ export function jsonToPostgreSQL(obj) {
         }CREATE TABLE IF NOT EXISTS ${q(table.name)} (\n${table.fields
           .map(
             (field) =>
-              `${field.comment === "" ? "" : `\t-- ${field.comment}\n`}\t${q(
+              `${field.comment === "" ? "" : `\t-- ${sqlLineComment(field.comment)}\n`}\t${q(
                 field.name,
               )} ${getTypeString(field, obj.database, DB.POSTGRES)}${
                 field.notNull ? " NOT NULL" : ""
@@ -378,7 +387,9 @@ export function jsonToPostgreSQL(obj) {
         .map((c) => q(c))
         .join(", ")}) REFERENCES ${q(endName)}(${endColumns
         .map((c) => q(c))
-        .join(", ")})\nON UPDATE ${safeConstraint(r.updateConstraint)} ON DELETE ${safeConstraint(r.deleteConstraint)};`;
+        .join(
+          ", ",
+        )})\nON UPDATE ${safeConstraint(r.updateConstraint)} ON DELETE ${safeConstraint(r.deleteConstraint)};`;
     })
     .join("\n")}`;
 }
@@ -426,11 +437,11 @@ export function jsonToSQLite(obj) {
     .map((table) => {
       const inlineFK = getInlineFK(table, obj, q);
       return `${
-        table.comment === "" ? "" : `/* ${table.comment} */\n`
+        table.comment === "" ? "" : `/* ${sqlBlockComment(table.comment)} */\n`
       }CREATE TABLE IF NOT EXISTS ${q(table.name)} (\n${table.fields
         .map(
           (field) =>
-            `${field.comment === "" ? "" : `\t-- ${field.comment}\n`}\t${q(
+            `${field.comment === "" ? "" : `\t-- ${sqlLineComment(field.comment)}\n`}\t${q(
               field.name,
             )} ${getSQLiteType(field)}${field.notNull ? " NOT NULL" : ""}${
               field.unique ? " UNIQUE" : ""
@@ -453,9 +464,7 @@ export function jsonToSQLite(obj) {
           (i) =>
             `\nCREATE ${i.unique ? "UNIQUE " : ""}INDEX IF NOT EXISTS ${q(
               i.name,
-            )}\nON ${q(table.name)} (${i.fields
-              .map((f) => q(f))
-              .join(", ")});`,
+            )}\nON ${q(table.name)} (${i.fields.map((f) => q(f)).join(", ")});`,
         )
         .join("\n")}`;
     })
@@ -483,9 +492,11 @@ export function jsonToMariaDB(obj) {
                 field.check === "" ||
                 !dbToTypes[obj.database][field.type].hasCheck
                   ? !Object.keys(defaultTypes).includes(field.type)
-                    ? ` CHECK(\n\t\tJSON_SCHEMA_VALID('${generateSchema(
-                        obj.types.find(
-                          (t) => t.name === field.type.toLowerCase(),
+                    ? ` CHECK(\n\t\tJSON_SCHEMA_VALID('${escapeQuotes(
+                        generateSchema(
+                          obj.types.find(
+                            (t) => t.name === field.type.toLowerCase(),
+                          ),
                         ),
                       )}', ${q(field.name)}))`
                     : ""
@@ -527,7 +538,9 @@ export function jsonToMariaDB(obj) {
         .map((c) => q(c))
         .join(", ")}) REFERENCES ${q(endName)}(${endColumns
         .map((c) => q(c))
-        .join(", ")})\nON UPDATE ${safeConstraint(r.updateConstraint)} ON DELETE ${safeConstraint(r.deleteConstraint)};`;
+        .join(
+          ", ",
+        )})\nON UPDATE ${safeConstraint(r.updateConstraint)} ON DELETE ${safeConstraint(r.deleteConstraint)};`;
     })
     .join("\n")}`;
 }
@@ -538,7 +551,7 @@ export function jsonToSQLServer(obj) {
   return `${obj.types
     .map((type) => {
       return `${
-        type.comment === "" ? "" : `/**\n${type.comment}\n*/\n`
+        type.comment === "" ? "" : `/**\n${sqlBlockComment(type.comment)}\n*/\n`
       }CREATE TYPE ${q(type.name)} FROM ${
         type.fields.length < 0
           ? ""
@@ -549,11 +562,13 @@ export function jsonToSQLServer(obj) {
     .map(
       (table) =>
         `${
-          table.comment === "" ? "" : `/**\n${table.comment}\n*/\n`
+          table.comment === ""
+            ? ""
+            : `/**\n${sqlBlockComment(table.comment)}\n*/\n`
         }CREATE TABLE ${q(table.name)} (\n${table.fields
           .map(
             (field) =>
-              `${field.comment === "" ? "" : `\t-- ${field.comment}\n`}\t${q(
+              `${field.comment === "" ? "" : `\t-- ${sqlLineComment(field.comment)}\n`}\t${q(
                 field.name,
               )} ${getTypeString(field, obj.database, DB.MSSQL)}${
                 field.notNull ? " NOT NULL" : ""
@@ -605,7 +620,9 @@ export function jsonToSQLServer(obj) {
         .map((c) => q(c))
         .join(", ")}) REFERENCES ${q(endName)}(${endColumns
         .map((c) => q(c))
-        .join(", ")})\nON UPDATE ${safeConstraint(r.updateConstraint)} ON DELETE ${safeConstraint(r.deleteConstraint)};\nGO`;
+        .join(
+          ", ",
+        )})\nON UPDATE ${safeConstraint(r.updateConstraint)} ON DELETE ${safeConstraint(r.deleteConstraint)};\nGO`;
     })
     .join("\n")}`;
 }
@@ -630,11 +647,13 @@ export function jsonToOracleSQL(obj) {
                 .join("\n")}\n`
             : ""
         }${
-          table.comment === "" ? "" : `/* ${table.comment} */\n`
+          table.comment === ""
+            ? ""
+            : `/* ${sqlBlockComment(table.comment)} */\n`
         }CREATE TABLE ${q(table.name)} (\n${table.fields
           .map(
             (field) =>
-              `${field.comment === "" ? "" : `  -- ${field.comment}\n`}  ${q(
+              `${field.comment === "" ? "" : `  -- ${sqlLineComment(field.comment)}\n`}  ${q(
                 field.name,
               )} ${getTypeString(field, obj.database, DB.ORACLESQL)}${
                 field.notNull ? " NOT NULL" : ""

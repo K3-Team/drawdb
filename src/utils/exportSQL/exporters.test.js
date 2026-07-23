@@ -9,7 +9,7 @@ import {
   jsonToOracleSQL,
 } from "./generic";
 import { generateMigrationSQL } from "../migrations/diffToSQL";
-import { parseDefault } from "./shared";
+import { parseDefault, exportFieldComment } from "./shared";
 import { DB } from "../../data/constants";
 
 // Contains every identifier delimiter used by any supported dialect.
@@ -345,5 +345,116 @@ describe("structural values that can graft a column are refused", () => {
     d.tables[0].fields[0].type = "DECIMAL";
     d.tables[0].fields[0].size = "10,2";
     expect(exportSQL(d)).toContain("DECIMAL(10,2)");
+  });
+});
+
+// Comment bodies are inert text, so they are neutralised rather than rejected:
+// "*/" closes a block comment and a newline ends a line comment.
+describe("comment bodies cannot escape their delimiters", () => {
+  const BLOCK = "note */ ; DROP TABLE users; /*";
+  const LINE = "note\nDROP TABLE users";
+
+  for (const db of [DB.SQLITE, DB.ORACLESQL]) {
+    it(`${db} keeps a block comment closed`, () => {
+      const d = diagram(db);
+      d.tables[0].fields[0].type = db === DB.ORACLESQL ? "VARCHAR2" : "VARCHAR";
+      d.tables[0].comment = BLOCK;
+      const sql = exportSQL(d);
+      const block = sql.split("\n").find((l) => l.trimStart().startsWith("/*"));
+      // The only "*/" in the block is its own terminator.
+      expect(block.indexOf("*/")).toBe(block.length - 2);
+      expect(block).toContain("* / ; DROP TABLE users");
+    });
+  }
+
+  it("oraclesql keeps an inline line comment on one line", () => {
+    const d = diagram(DB.ORACLESQL);
+    d.tables[0].fields[0].type = "VARCHAR2";
+    d.tables[0].fields[0].comment = LINE;
+    const sql = exportSQL(d);
+    // The payload must never start a line of its own.
+    expect(sql.split("\n").some((l) => l.trim() === "DROP TABLE users")).toBe(
+      false,
+    );
+  });
+
+  it("puts every line of a multi-line comment behind its own --", () => {
+    // A newline inside the COMMENT ON string literal is harmless; what
+    // matters is the -- block, where an unescaped newline would end the
+    // comment and leave the rest as executable SQL.
+    expect(exportFieldComment(LINE)).toBe("\t-- note\n\t-- DROP TABLE users\n");
+    expect(exportFieldComment("note\rDROP TABLE users")).toBe(
+      "\t-- note\n\t-- DROP TABLE users\n",
+    );
+  });
+});
+
+describe("JSON_SCHEMA_VALID nests its layers safely", () => {
+  it("escapes a quote in an enum value at both the JSON and SQL layer", () => {
+    const obj = {
+      database: DB.GENERIC,
+      tables: [
+        {
+          id: 1,
+          name: "t",
+          comment: "",
+          inherits: [],
+          uniqueConstraints: [],
+          indices: [],
+          fields: [
+            {
+              id: 10,
+              name: "c",
+              type: "custom_t",
+              size: "",
+              notNull: false,
+              primary: false,
+              unique: false,
+              increment: false,
+              default: "",
+              check: "",
+              comment: "",
+              values: [],
+            },
+          ],
+        },
+      ],
+      references: [],
+      enums: [],
+      types: [
+        {
+          name: "custom_t",
+          comment: "",
+          fields: [
+            {
+              name: "f",
+              type: "ENUM",
+              values: ["a'\") ; DROP TABLE users; --"],
+            },
+          ],
+        },
+      ],
+    };
+    const sql = jsonToMySQL(obj);
+    expect(sql).not.toContain("a'\") ; DROP TABLE users");
+    // ' doubled for the SQL literal, " backslash-escaped for the JSON layer.
+    expect(sql).toContain("a''");
+    expect(sql).toContain('\\"');
+  });
+});
+
+describe("postgres composite types are quoted like every other identifier", () => {
+  it("quotes the type name and its attribute names", () => {
+    const d = diagram(DB.POSTGRES);
+    d.types = [
+      {
+        name: 'evil" ; DROP TABLE users; --',
+        comment: "",
+        fields: [{ name: 'a" b', type: "INT" }],
+      },
+    ];
+    const sql = exportSQL(d);
+    expect(sql).toContain('CREATE TYPE "evil"" ; DROP TABLE users; --"');
+    expect(sql).toContain('"a"" b" INT');
   });
 });

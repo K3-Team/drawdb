@@ -11,6 +11,8 @@ import {
   assertNoStatementBreak,
   assertSafeSize,
   assertSafeType,
+  sqlBlockComment,
+  sqlLineComment,
 } from "./identifiers";
 
 export function toOracleSQL(diagram) {
@@ -20,11 +22,13 @@ export function toOracleSQL(diagram) {
     .map(
       (table) =>
         `${
-          table.comment === "" ? "" : `/* ${table.comment} */\n`
+          table.comment === ""
+            ? ""
+            : `/* ${sqlBlockComment(table.comment)} */\n`
         }CREATE TABLE ${q(table.name)} (\n${table.fields
           .map(
             (field) =>
-              `${field.comment === "" ? "" : `\t-- ${field.comment}\n`}\t${q(
+              `${field.comment === "" ? "" : `\t-- ${sqlLineComment(field.comment)}\n`}\t${q(
                 field.name,
               )} ${assertSafeType(field.type)}${
                 field.size !== undefined && field.size !== ""
@@ -41,7 +45,7 @@ export function toOracleSQL(diagram) {
                 !dbToTypes[diagram.database][field.type].hasCheck
                   ? ""
                   : ` CHECK(${assertNoStatementBreak(field.check)})`
-              }${field.comment ? ` -- ${field.comment}` : ""}`,
+              }${field.comment ? ` -- ${sqlLineComment(field.comment)}` : ""}`,
           )
           .join(",\n")}${
           table.fields.filter((f) => f.primary).length > 0
@@ -50,7 +54,7 @@ export function toOracleSQL(diagram) {
                 .map((f) => q(f.name))
                 .join(", ")})`
             : ""
-        }${uniqueConstraintClause(table, q)}\n)${table.comment ? ` -- ${table.comment}` : ""};\n${`\n${table.indices
+        }${uniqueConstraintClause(table, q)}\n)${table.comment ? ` -- ${sqlLineComment(table.comment)}` : ""};\n${`\n${table.indices
           .map(
             (i) =>
               `\nCREATE ${i.unique ? "UNIQUE " : ""}INDEX ${q(i.name)}\nON ${q(table.name)} (${i.fields
