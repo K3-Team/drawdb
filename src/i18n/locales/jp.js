@@ -25,7 +25,6 @@ const jp = {
     import_from_source: "SQLからインポート",
     export_as: "としてエクスポート",
     export_source: "SQLをエクスポート",
-    models: "モデル",
     exit: "終了",
     edit: "編集",
     undo: "元に戻す",
@@ -58,7 +57,6 @@ const jp = {
     settings: "設定",
     show_timeline: "タイムラインを表示",
     autosave: "自動保存",
-    panning: "パンニング",
     show_debug_coordinates: "デバッグ座標を表示",
     transform: "変換",
     viewbox: "ビュー・ボックス",
@@ -74,7 +72,6 @@ const jp = {
     storage_flushed: "ストレージが消去されました",
     help: "ヘルプ",
     shortcuts: "ショートカット",
-    feedback: "フィードバック",
     no_changes: "変更なし",
     loading: "読み込み中...",
     last_saved: "最後の保存",
@@ -143,7 +140,6 @@ const jp = {
     table_deleted: "テーブルが削除されました",
     area_deleted: "エリアが削除されました",
     note_deleted: "ノートが削除されました",
-    relationship_deleted: "リレーションシップが削除されました",
     type_deleted: "タイプが削除されました",
     cannot_connect: "接続できません、列のタイプが異なります",
     copied_to_clipboard: "クリップボードにコピーされました",
@@ -161,8 +157,6 @@ const jp = {
     upload_sql_to_generate_diagrams:
       "SQLファイルをアップロードしてテーブルと列を自動生成します。",
     overwrite_existing_diagram: "既存のダイアグラムを上書きする",
-    only_mysql_supported:
-      "*現在のところMySQLスクリプトの読み込みのみサポートされています。",
     blank: "空白",
     filename: "ファイル名",
     table_w_no_name: "名前のないテーブルが宣言されました",
@@ -206,10 +200,8 @@ const jp = {
     completed: "完了",
     alphabetically: "アルファベット順",
     add_task: "タスクを追加",
-    details: "詳細",
     no_tasks: "タスクはまだありません。",
     no_activity: "アクティビティはまだありません。",
-    move_element: "{{name}} を {{coords}} に移動",
     edit_area: "{{extra}} エリア {{areaName}} を編集",
     delete_area: "エリア {{areaName}} を削除",
     edit_note: "{{extra}} ノート {{noteTitle}} を編集",
@@ -238,15 +230,9 @@ const jp = {
     declare_array: "配列を宣言",
     empty_index_name:
       "テーブル '{{tableName}}' 内で名前のないインデックスが宣言されました",
-    didnt_find_diagram: "おっと！ダイアグラムが見つかりませんでした。",
     unsigned: "符号なし",
-    share: "共有",
-    copy_link: "リンクをコピー",
-    readme: "README",
     failed_to_load:
       "読み込みに失敗しました。リンクが正しいか確認してください。",
-    share_info:
-      "* このリンクを共有してもリアルタイムコラボレーションセッションは作成されません。",
   },
 };
 

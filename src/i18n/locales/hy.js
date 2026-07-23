@@ -25,7 +25,6 @@ const hy = {
     import_from_source: "Ներմուծել SQL-ից",
     export_as: "Արտահանել որպես",
     export_source: "Արտահանել SQL",
-    models: "Մոդելներ",
     exit: "Ելք",
     edit: "Խմբագրել",
     undo: "Հետարկել",
@@ -58,7 +57,6 @@ const hy = {
     settings: "Կարգավորումներ",
     show_timeline: "Պատմություն",
     autosave: "Ավտոմատ պահպանել",
-    panning: "Շարժել սխեման",
     show_debug_coordinates: "Ցուցադրել կոորդինատները",
     transform: "Փոփոխություն",
     viewbox: "Դիտման գոտի",
@@ -74,7 +72,6 @@ const hy = {
     storage_flushed: "Պահեստը դատարկված է",
     help: "Օգնություն",
     shortcuts: "Դյուրանցումներ",
-    feedback: "Հետադարձ կապ",
     no_changes: "Փոփոխություններ չկան",
     loading: "Բեռնվում է...",
     last_saved: "Վերջին պահպանումը",
@@ -145,7 +142,6 @@ const hy = {
     table_deleted: "Աղյուսակը ջնջված է",
     area_deleted: "Մակերեսը ջհջված է",
     note_deleted: "Նմուշը ջհջված է",
-    relationship_deleted: "Հարաբերությունը ջնջված է",
     type_deleted: "Տիպը ջհջված է",
     cannot_connect: "Չի հաջողվում միացնել, դաշտորը տարբեր տեսակներ ունեն",
     copied_to_clipboard: "Պատճենված է սեղմակապին",
@@ -163,7 +159,6 @@ const hy = {
     upload_sql_to_generate_diagrams:
       "Վերբեռնեք sql ֆայլ՝ ձեր աղյուսակներն ու սյունակները ավտոմատ ստեղծելու համար։",
     overwrite_existing_diagram: "Փոխարինել առկա սխեման",
-    only_mysql_supported: "",
     blank: "Դատարկ",
     filename: "Ֆայլի անուն",
     table_w_no_name: "Հայտարարվել է աղյուսակ առանց անվան",
@@ -205,10 +200,8 @@ const hy = {
     completed: "Ավարտված",
     alphabetically: "Այբբենական",
     add_task: "Ավելացնել առաջադրանք",
-    details: "Մանրամասներ",
     no_tasks: "Դուք դեռ չունեք առաջադրանքներ։",
     no_activity: "Դուք դեռ չունեք գործողություններ։",
-    move_element: "Տեղափոխել {{name}} {{coords}}-ում",
     edit_area: "{{extra}} Խմբագրել մակերես {{areaName}}",
     delete_area: "Ջնջել մակերես {{areaName}}",
     edit_note: "{{extra}} Խմբագրել նշում {{noteTitle}}",
@@ -237,7 +230,6 @@ const hy = {
     declare_array: "Հայտարարել array",
     empty_index_name:
       "Հայտարարվել է ինդեքս '{{tableName}}' աղյուսակում առանց անվան",
-    didnt_find_diagram: "Ուֆֆ! Սխեման չի գտնվել։",
   },
 };
 

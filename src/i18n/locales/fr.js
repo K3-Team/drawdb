@@ -25,7 +25,6 @@ const fr = {
     import_from_source: "Importer depuis SQL",
     export_as: "Exporter en tant que",
     export_source: "Exporter SQL",
-    models: "Modèles",
     exit: "Sortir",
     edit: "Éditer",
     undo: "Annuler",
@@ -58,7 +57,6 @@ const fr = {
     settings: "Paramètres",
     show_timeline: "Afficher la chronologie",
     autosave: "Sauvegarde automatique",
-    panning: "Panoramique",
     table_width: "Largeur de la table",
     language: "Langue",
     flush_storage: "Vider le stockage",
@@ -67,7 +65,6 @@ const fr = {
     storage_flushed: "Stockage vidé",
     help: "Aide",
     shortcuts: "Raccourcis",
-    feedback: "Retour d'information",
     no_changes: "Aucun changement",
     loading: "Chargement...",
     last_saved: "Dernière sauvegarde",
@@ -138,7 +135,6 @@ const fr = {
     table_deleted: "Table supprimée",
     area_deleted: "Zone supprimée",
     note_deleted: "Note supprimée",
-    relationship_deleted: "Relation supprimée",
     type_deleted: "Type supprimé",
     cannot_connect:
       "Impossible de connecter, les types de colonnes sont différents",
@@ -157,8 +153,6 @@ const fr = {
     upload_sql_to_generate_diagrams:
       "Téléchargez un fichier SQL pour générer automatiquement vos tables et colonnes.",
     overwrite_existing_diagram: "Écraser le diagramme existant",
-    only_mysql_supported:
-      "*Pour le moment, seuls les scripts MySQL peuvent être chargés.",
     blank: "Vide",
     filename: "Nom du fichier",
     table_w_no_name: "Table déclarée sans nom",
@@ -199,10 +193,8 @@ const fr = {
     completed: "Terminé",
     alphabetically: "Alphabétiquement",
     add_task: "Ajouter une tâche",
-    details: "Détails",
     no_tasks: "Vous n'avez pas encore de tâches.",
     no_activity: "Vous n'avez pas encore d'activité.",
-    move_element: "Déplacer {{name}} à {{coords}}",
     edit_area: "{{extra}} Modifier la zone {{areaName}}",
     delete_area: "Supprimer la zone {{areaName}}",
     edit_note: "{{extra}} Modifier la note {{noteTitle}}",
@@ -215,7 +207,6 @@ const fr = {
     edit_relationship: "{{extra}} Modifier la relation {{refName}}",
     delete_relationship: "Supprimer la relation {{refName}}",
     not_found: "Non trouvé",
-    readme: "README",
   },
 };
 

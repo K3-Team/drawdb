@@ -25,7 +25,6 @@ const pl = {
     import_from_source: "Importuj z SQL",
     export_as: "Eksportuj jako",
     export_source: "Eksportuj SQL",
-    models: "Modele",
     exit: "Wyjdź",
     edit: "Edytuj",
     undo: "Cofnij",
@@ -58,7 +57,6 @@ const pl = {
     settings: "Ustawienia",
     show_timeline: "Pokaż oś czasu",
     autosave: "Automatyczne zapisywanie",
-    panning: "Przesuwanie",
     show_debug_coordinates: "Pokaż współrzędne debugowania",
     transform: "Przekształć",
     viewbox: "Obszar widoku",
@@ -74,7 +72,6 @@ const pl = {
     storage_flushed: "Pamięć wyczyszczona",
     help: "Pomoc",
     shortcuts: "Skróty",
-    feedback: "Opinie",
     no_changes: "Brak zmian",
     loading: "Ładowanie...",
     last_saved: "Ostatnio zapisane",
@@ -143,7 +140,6 @@ const pl = {
     table_deleted: "Tabela usunięta",
     area_deleted: "Obszar usunięty",
     note_deleted: "Notatka usunięta",
-    relationship_deleted: "Relacja usunięta",
     type_deleted: "Typ usunięty",
     cannot_connect: "Nie można połączyć, kolumny mają różne typy",
     copied_to_clipboard: "Skopiowano do schowka",
@@ -161,8 +157,6 @@ const pl = {
     upload_sql_to_generate_diagrams:
       "Prześlij plik SQL, aby automatycznie wygenerować tabele i kolumny.",
     overwrite_existing_diagram: "Nadpisz istniejący diagram",
-    only_mysql_supported:
-      "*Obecnie obsługiwane jest tylko ładowanie skryptów MySQL.",
     blank: "Pusty",
     filename: "Nazwa pliku",
     table_w_no_name: "Zadeklarowano tabelę bez nazwy",
@@ -203,10 +197,8 @@ const pl = {
     completed: "Ukończone",
     alphabetically: "Alfabetycznie",
     add_task: "Dodaj zadanie",
-    details: "Szczegóły",
     no_tasks: "Nie masz jeszcze żadnych zadań.",
     no_activity: "Nie masz jeszcze żadnej aktywności.",
-    move_element: "Przenieś {{name}} do {{coords}}",
     edit_area: "{{extra}} Edytuj obszar {{areaName}}",
     delete_area: "Usuń obszar {{areaName}}",
     edit_note: "{{extra}} Edytuj notatkę {{noteTitle}}",
@@ -234,15 +226,9 @@ const pl = {
     no_enums_text: "Zdefiniuj wyliczenia tutaj",
     declare_array: "Zadeklaruj tablicę",
     empty_index_name: "Zadeklarowano indeks bez nazwy w tabeli '{{tableName}}'",
-    didnt_find_diagram: "Ups! Nie znaleziono diagramu.",
     unsigned: "Bez znaku",
-    share: "Udostępnij",
-    copy_link: "Kopiuj link",
-    readme: "README",
     failed_to_load:
       "Nie udało się załadować. Upewnij się, że link jest poprawny.",
-    share_info:
-      "* Udostępnienie tego linku nie utworzy sesji współpracy w czasie rzeczywistym.",
   },
 };
 

@@ -25,7 +25,6 @@ const ru = {
     import_from_source: "Импорт из SQL",
     export_as: "Экспорт как",
     export_source: "Экспорт в SQL",
-    models: "Модели",
     exit: "Выход",
     edit: "Редактировать",
     undo: "Отменить",
@@ -58,7 +57,6 @@ const ru = {
     settings: "Настройки",
     show_timeline: "Показать временную шкалу",
     autosave: "Автосохранение",
-    panning: "Панорамирование",
     table_width: "Ширина таблицы",
     language: "Язык",
     flush_storage: "Очистить хранилище",
@@ -67,7 +65,6 @@ const ru = {
     storage_flushed: "Хранилище очищено",
     help: "Помощь",
     shortcuts: "Горячие клавиши",
-    feedback: "Обратная связь",
     no_changes: "Нет изменений",
     loading: "Загрузка...",
     last_saved: "Последнее сохранение",
@@ -138,7 +135,6 @@ const ru = {
     table_deleted: "Таблица удалена",
     area_deleted: "Область удалена",
     note_deleted: "Заметка удалена",
-    relationship_deleted: "Отношение удалено",
     type_deleted: "Тип удален",
     cannot_connect: "Невозможно подключиться, колонки имеют разные типы",
     copied_to_clipboard: "Скопировано в буфер обмена",
@@ -155,8 +151,6 @@ const ru = {
     upload_sql_to_generate_diagrams:
       "Загрузите файл sql для автогенерации ваших таблиц и колонок.",
     overwrite_existing_diagram: "Перезаписать существующую диаграмму",
-    only_mysql_supported:
-      "*На данный момент поддерживается только загрузка скриптов MySQL.",
     blank: "Пустой",
     filename: "Имя файла",
     table_w_no_name: "Объявлена таблица без названия",
@@ -198,10 +192,8 @@ const ru = {
     completed: "Завершено",
     alphabetically: "По алфавиту",
     add_task: "Добавить задачу",
-    details: "Подробности",
     no_tasks: "У вас еще нет задач.",
     no_activity: "У вас пока нет активности.",
-    move_element: "Переместить {{name}} в {{coords}}",
     edit_area: "{{extra}} Редактировать область {{areaName}}",
     delete_area: "Удалить область {{areaName}}",
     edit_note: "{{extra}} Редактировать заметку {{noteTitle}}",
@@ -230,16 +222,9 @@ const ru = {
     no_enums_text: "Определите перечисления здесь",
     declare_array: "Объявите массив",
     empty_index_name: "Объявленный индекс без имени в таблице '{{tableName}}'",
-    didnt_find_diagram: "Упс! Не нашел диаграмму.",
     unsigned: "Неподписанный",
-    share: "Поделиться",
-    unshare: "Не делиться",
-    copy_link: "Скопировать ссылку",
-    readme: "README",
     failed_to_load:
       "Не удалось загрузить. Убедитесь, что ссылка указана правильно.",
-    share_info:
-      "* Поделившись этой ссылкой, не будет создано сеанса совместной работы в режиме реального времени.",
   },
 };
 

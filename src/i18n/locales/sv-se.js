@@ -25,7 +25,6 @@ const sv = {
     import_from_source: "Importera från SQL",
     export_as: "Exportera som",
     export_source: "Exportera SQL",
-    models: "Modeller",
     exit: "Avsluta",
     edit: "Redigera",
     undo: "Ångra",
@@ -58,7 +57,6 @@ const sv = {
     settings: "Inställningar",
     show_timeline: "Visa tidslinje",
     autosave: "Autospara",
-    panning: "Panorering",
     show_debug_coordinates: "Visa felsökningskoordinater",
     transform: "Transformera",
     viewbox: "Visningsruta",
@@ -74,7 +72,6 @@ const sv = {
     storage_flushed: "Lagring tömd",
     help: "Hjälp",
     shortcuts: "Kortkommandon",
-    feedback: "Feedback",
     no_changes: "Inga ändringar",
     loading: "Laddar...",
     last_saved: "Senast sparad",
@@ -143,7 +140,6 @@ const sv = {
     table_deleted: "Tabell raderad",
     area_deleted: "Område raderat",
     note_deleted: "Anteckning raderad",
-    relationship_deleted: "Relation raderad",
     type_deleted: "Typ raderad",
     cannot_connect: "Kan inte ansluta, kolumnerna har olika typer",
     copied_to_clipboard: "Kopierad till urklipp",
@@ -161,8 +157,6 @@ const sv = {
     upload_sql_to_generate_diagrams:
       "Ladda upp en SQL-fil för att auto-generera dina tabeller och kolumner.",
     overwrite_existing_diagram: "Skriv över befintligt diagram",
-    only_mysql_supported:
-      "*För närvarande stöds endast uppladdning av MySQL-skript.",
     blank: "Tom",
     filename: "Filnamn",
     table_w_no_name: "Deklarerade en tabell utan namn",
@@ -203,10 +197,8 @@ const sv = {
     completed: "Slutförd",
     alphabetically: "Alfabetiskt",
     add_task: "Lägg till uppgift",
-    details: "Detaljer",
     no_tasks: "Du har inga uppgifter ännu.",
     no_activity: "Du har ingen aktivitet ännu.",
-    move_element: "Flytta {{name}} till {{coords}}",
     edit_area: "{{extra}} Redigera område {{areaName}}",
     delete_area: "Radera område {{areaName}}",
     edit_note: "{{extra}} Redigera anteckning {{noteTitle}}",
@@ -235,14 +227,8 @@ const sv = {
     declare_array: "Deklarera array",
     empty_index_name:
       "Deklarerade ett index utan namn i tabell '{{tableName}}'",
-    didnt_find_diagram: "Oj! Kunde inte hitta diagrammet.",
     unsigned: "Osignerad",
-    share: "Dela",
-    copy_link: "Kopiera länk",
-    readme: "README",
     failed_to_load: "Kunde inte ladda. Se till att länken är korrekt.",
-    share_info:
-      "* Att dela denna länk kommer inte att skapa en live samarbetssession.",
   },
 };
 

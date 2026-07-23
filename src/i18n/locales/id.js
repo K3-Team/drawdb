@@ -25,7 +25,6 @@ const id = {
     import_from_source: "Impor dari SQL",
     export_as: "Ekspor sebagai",
     export_source: "Ekspor SQL",
-    models: "Model",
     exit: "Keluar",
     edit: "Sunting",
     undo: "Batalkan",
@@ -60,7 +59,6 @@ const id = {
     settings: "Pengaturan",
     show_timeline: "Tampilkan garis waktu",
     autosave: "Simpan otomatis",
-    panning: "Geser",
     show_debug_coordinates: "Tampilkan koordinat debug",
     transform: "Transformasi",
     viewbox: "Kotak tampilan",
@@ -79,7 +77,6 @@ const id = {
     help: "Bantuan",
     docs: "Dokumentasi",
     shortcuts: "Pintasan",
-    feedback: "Umpan balik",
     no_changes: "Tidak ada perubahan",
     loading: "Memuat...",
     last_saved: "Terakhir disimpan",
@@ -149,7 +146,6 @@ const id = {
     table_deleted: "Tabel dihapus",
     area_deleted: "Area dihapus",
     note_deleted: "Catatan dihapus",
-    relationship_deleted: "Hubungan dihapus",
     type_deleted: "Jenis dihapus",
     cannot_connect:
       "Tidak dapat menghubungkan, kolom memiliki tipe yang berbeda",
@@ -168,7 +164,6 @@ const id = {
     upload_sql_to_generate_diagrams:
       "Unggah file SQL untuk mengotomatiskan tabel dan kolom Anda.",
     overwrite_existing_diagram: "Timpa diagram yang ada",
-    only_mysql_supported: "*Saat ini hanya memuat skrip MySQL yang didukung.",
     blank: "Kosong",
     filename: "Nama file",
     table_w_no_name: "Mendeklarasikan tabel tanpa nama",
@@ -213,10 +208,8 @@ const id = {
     completed: "Selesai",
     alphabetically: "Alfabet",
     add_task: "Tambah tugas",
-    details: "Detail",
     no_tasks: "Anda belum memiliki tugas.",
     no_activity: "Anda belum memiliki aktivitas.",
-    move_element: "Pindahkan {{name}} ke {{coords}}",
     edit_area: "{{extra}} Edit area {{areaName}}",
     delete_area: "Hapus area {{areaName}}",
     edit_note: "{{extra}} Edit catatan {{noteTitle}}",
@@ -245,7 +238,6 @@ const id = {
     declare_array: "Deklarasikan array",
     empty_index_name:
       "Mendeklarasikan indeks tanpa nama dalam tabel '{{tableName}}'",
-    didnt_find_diagram: "Ups! Tidak menemukan diagram.",
     dbml_view: "Tampilan DBML",
   },
 };
