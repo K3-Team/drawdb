@@ -62,6 +62,11 @@ export function getTypeString(
   dbms = DB.MYSQL,
   baseType = false,
 ) {
+  // Guard once, here. dbToTypes returns `false` for an unknown key, so every
+  // `dbToTypes[db][field.type].isSized` test below silently skips rather than
+  // throwing -- which used to drop an unrecognised type straight into the
+  // fallthrough returns unvalidated.
+  assertSafeType(field.type);
   if (dbms === DB.MYSQL) {
     if (field.type === "UUID") {
       return `VARCHAR(36)`;
@@ -119,7 +124,7 @@ export function getTypeString(
     ) {
       return `${assertSafeType(field.type.toLowerCase())}${field.size ? `(${assertSafeSize(field.size)})` : ""}`;
     }
-    return field.type.toLowerCase();
+    return assertSafeType(field.type).toLowerCase();
   } else if (dbms === DB.MSSQL) {
     let type = assertSafeType(field.type);
     switch (field.type) {
@@ -152,7 +157,7 @@ export function getTypeString(
       case "TEXT":
         return "TEXT";
       default:
-        type = field.type;
+        type = assertSafeType(field.type);
         break;
     }
     if (dbToTypes[currentDb][field.type].isSized) {

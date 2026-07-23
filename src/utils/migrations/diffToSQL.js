@@ -12,6 +12,7 @@ import {
   sqlBlockComment,
   sqlLineComment,
   escapeQuotes,
+  collapseLineBreaks,
 } from "../exportSQL/sqlSafety";
 import { DB } from "../../data/constants";
 import { databases } from "../../data/databases";
@@ -22,7 +23,7 @@ import { getRelationshipFields } from "../utils";
 // as string literals, not as quoted identifiers, so a name containing ' must be
 // escaped by doubling it -- the same treatment mssql.js already applies.
 function mssqlLiteral(value) {
-  return escapeQuotes(String(value ?? ""));
+  return escapeQuotes(collapseLineBreaks(value));
 }
 
 function parseType(field, db) {

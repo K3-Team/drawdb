@@ -458,3 +458,136 @@ describe("postgres composite types are quoted like every other identifier", () =
     expect(sql).toContain('"a"" b" INT');
   });
 });
+
+// getTypeString has fallthrough `return` sinks that no ${...} sweep can see:
+// dbToTypes yields `false` for an unknown key, so the isSized/hasPrecision
+// tests above them skip instead of throwing.
+describe("getTypeString fallthrough returns are guarded", () => {
+  const EVIL = "INT); DROP TABLE users; --";
+
+  it("refuses an unknown type on the postgres fallthrough", () => {
+    expect(() =>
+      jsonToPostgreSQL({
+        database: DB.GENERIC,
+        references: [],
+        enums: [],
+        types: [],
+        tables: [
+          {
+            id: 1,
+            name: "t1",
+            comment: "",
+            inherits: [],
+            uniqueConstraints: [],
+            indices: [],
+            fields: [
+              {
+                id: 10,
+                name: "c1",
+                type: EVIL,
+                size: "",
+                notNull: false,
+                primary: false,
+                unique: false,
+                increment: false,
+                default: "",
+                check: "",
+                comment: "",
+                values: [],
+              },
+            ],
+          },
+        ],
+      }),
+    ).toThrow(/type name/);
+  });
+
+  it("refuses the same type through a composite type definition", () => {
+    expect(() =>
+      jsonToPostgreSQL({
+        database: DB.GENERIC,
+        references: [],
+        enums: [],
+        tables: [],
+        types: [
+          { name: "addr", comment: "", fields: [{ name: "f1", type: EVIL }] },
+        ],
+      }),
+    ).toThrow(/type name/);
+  });
+});
+
+// A CR splits an MSSQL batch exactly as an LF does.
+describe("MSSQL literals cannot start a new GO batch", () => {
+  it("collapses a carriage return in an extended-property value", () => {
+    const d = diagram(DB.MSSQL);
+    d.tables[0].comment = "desc\rGO\rDROP TABLE users\rGO\rx";
+    const sql = exportSQL(d);
+    expect(sql).not.toMatch(/[\r\n]\s*GO\s*[\r\n]\s*DROP TABLE users/);
+    expect(sql).toContain("desc GO DROP TABLE users GO x");
+  });
+
+  it("collapses a newline in a migration extended-property name", () => {
+    const { up } = generateMigrationSQL(
+      {
+        "tables[id=1,name=a\nGO\nDROP TABLE users\nGO\nb]#comment": {
+          to: "n",
+          from: "",
+        },
+      },
+      DB.MSSQL,
+      { from: { tables: [] }, to: { tables: [] } },
+    );
+    expect(up).not.toMatch(/[\r\n]\s*GO\s*[\r\n]/);
+    expect(up).toContain("a GO DROP TABLE users GO b");
+  });
+});
+
+// Oracle used to append `-- comment` after the column, commenting out the
+// following `,` and the statement's `;`.
+describe("oraclesql keeps its delimiters when comments are present", () => {
+  const col = (id, name, comment) => ({
+    id,
+    name,
+    type: "VARCHAR2",
+    size: "255",
+    notNull: true,
+    primary: false,
+    unique: false,
+    increment: false,
+    default: "",
+    check: "",
+    comment,
+    values: [],
+  });
+
+  it("does not comment out the column separator or terminator", () => {
+    const sql = exportSQL({
+      database: DB.ORACLESQL,
+      references: [],
+      types: [],
+      enums: [],
+      tables: [
+        {
+          id: 1,
+          name: "users",
+          comment: "user accounts",
+          inherits: [],
+          uniqueConstraints: [],
+          indices: [],
+          fields: [col(10, "id", "pk"), col(11, "email", "contact")],
+        },
+      ],
+    });
+
+    // Every comment must own its whole line, so no delimiter follows one.
+    for (const line of sql.split("\n")) {
+      const c = line.indexOf("--");
+      if (c === -1) continue;
+      expect(line.slice(c)).not.toMatch(/[,;]\s*$/);
+    }
+    // The column separator and statement terminator both survive.
+    expect(sql).toContain('"id" VARCHAR2(255) NOT NULL,');
+    expect(sql).toContain(");");
+  });
+});

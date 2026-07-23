@@ -10,6 +10,7 @@ import {
   assertSafeSize,
   assertSafeType,
   escapeQuotes,
+  collapseLineBreaks,
 } from "./sqlSafety";
 
 import { dbToTypes } from "../../data/datatypes";
@@ -19,7 +20,7 @@ function generateAddExtendedPropertySQL(value, level1name, level2name = null) {
   if (!value || value.trim() === "") {
     return "";
   }
-  const escapedValue = escapeQuotes(value.replace(/\n/g, " "));
+  const escapedValue = escapeQuotes(collapseLineBreaks(value));
   const escapedTableName = escapeQuotes(level1name);
 
   if (level2name) {

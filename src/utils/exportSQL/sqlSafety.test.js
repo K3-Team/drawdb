@@ -9,6 +9,7 @@ import {
   assertSafeType,
   sqlBlockComment,
   sqlLineComment,
+  collapseLineBreaks,
 } from "./sqlSafety";
 import { DB, Constraint } from "../../data/constants";
 
@@ -218,5 +219,12 @@ describe("comment neutralisers", () => {
   it("keeps a line comment on one line", () => {
     expect(sqlLineComment("a\nDROP TABLE t")).toBe("a DROP TABLE t");
     expect(sqlLineComment("a\r\nDROP TABLE t")).toBe("a DROP TABLE t");
+  });
+});
+
+describe("collapseLineBreaks", () => {
+  it("collapses every line terminator form", () => {
+    expect(collapseLineBreaks("a\rGO\nb\r\nc")).toBe("a GO b c");
+    expect(collapseLineBreaks(null)).toBe("");
   });
 });

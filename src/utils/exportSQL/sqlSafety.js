@@ -208,10 +208,17 @@ export function assertSafeType(type) {
 // a user may legitimately write "*/" in a description, and refusing to export
 // their diagram over it would be hostile. Rewriting is lossless enough and
 // keeps the comment from escaping its delimiters.
+// MSSQL's GO is recognised at the start of a line, so any line terminator --
+// CR, LF or CRLF -- can split an emitted script into batches that run
+// independently. Values destined for a single-line context are collapsed.
+export function collapseLineBreaks(text) {
+  return String(text ?? "").replace(/\r\n|[\r\n]/g, " ");
+}
+
 export function sqlBlockComment(text) {
   return String(text ?? "").replace(/\*\//g, "* /");
 }
 
 export function sqlLineComment(text) {
-  return String(text ?? "").replace(/[\r\n]+/g, " ");
+  return collapseLineBreaks(text);
 }

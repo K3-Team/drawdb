@@ -45,7 +45,7 @@ export function toOracleSQL(diagram) {
                 !dbToTypes[diagram.database][field.type].hasCheck
                   ? ""
                   : ` CHECK(${assertNoStatementBreak(field.check)})`
-              }${field.comment ? ` -- ${sqlLineComment(field.comment)}` : ""}`,
+              }`,
           )
           .join(",\n")}${
           table.fields.filter((f) => f.primary).length > 0
@@ -54,7 +54,7 @@ export function toOracleSQL(diagram) {
                 .map((f) => q(f.name))
                 .join(", ")})`
             : ""
-        }${uniqueConstraintClause(table, q)}\n)${table.comment ? ` -- ${sqlLineComment(table.comment)}` : ""};\n${`\n${table.indices
+        }${uniqueConstraintClause(table, q)}\n);\n${`\n${table.indices
           .map(
             (i) =>
               `\nCREATE ${i.unique ? "UNIQUE " : ""}INDEX ${q(i.name)}\nON ${q(table.name)} (${i.fields
