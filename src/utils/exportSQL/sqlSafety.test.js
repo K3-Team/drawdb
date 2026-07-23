@@ -10,6 +10,7 @@ import {
   sqlBlockComment,
   sqlLineComment,
   collapseLineBreaks,
+  escapeQuotes,
 } from "./sqlSafety";
 import { DB, Constraint } from "../../data/constants";
 
@@ -226,5 +227,39 @@ describe("collapseLineBreaks", () => {
   it("collapses every line terminator form", () => {
     expect(collapseLineBreaks("a\rGO\nb\r\nc")).toBe("a GO b c");
     expect(collapseLineBreaks(null)).toBe("");
+  });
+});
+
+describe("escapeQuotes is dialect-aware", () => {
+  // Verified against MariaDB 11.4: without backslash-doubling this drops the
+  // users table.
+  const PAYLOAD = "\\' ); DROP TABLE users; CREATE TABLE zzz (a INT #";
+
+  it("doubles backslashes for MySQL and MariaDB so a quote cannot be freed", () => {
+    for (const db of [DB.MYSQL, DB.MARIADB]) {
+      const out = escapeQuotes(PAYLOAD, db);
+      // Every backslash and every quote is doubled.
+      expect(out).toBe("\\\\'' ); DROP TABLE users; CREATE TABLE zzz (a INT #");
+      // No lone backslash-quote survives to escape the closing delimiter.
+      expect(out.replace(/\\\\/g, "").replace(/''/g, "")).not.toContain("\\");
+    }
+  });
+
+  it("leaves backslashes untouched for ANSI dialects", () => {
+    for (const db of [
+      DB.POSTGRES,
+      DB.MSSQL,
+      DB.SQLITE,
+      DB.ORACLESQL,
+      undefined,
+    ]) {
+      expect(escapeQuotes("C:\\temp", db)).toBe("C:\\temp");
+      expect(escapeQuotes("O'Brien", db)).toBe("O''Brien");
+    }
+  });
+
+  it("round-trips a windows path on both families", () => {
+    expect(escapeQuotes("C:\\temp", DB.MYSQL)).toBe("C:\\\\temp");
+    expect(escapeQuotes("C:\\temp", DB.POSTGRES)).toBe("C:\\temp");
   });
 });

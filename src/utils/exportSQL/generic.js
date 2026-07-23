@@ -79,7 +79,7 @@ export function getTypeString(
     }
     if (field.type === "SET" || field.type === "ENUM") {
       return `${assertSafeType(field.type)}(${field.values
-        .map((v) => `'${escapeQuotes(String(v))}'`)
+        .map((v) => `'${escapeQuotes(String(v), DB.MYSQL)}'`)
         .join(", ")})`;
     }
     if (!Object.keys(defaultTypes).includes(field.type)) {
@@ -235,10 +235,11 @@ export function jsonToMySQL(obj) {
                             (t) => t.name === field.type.toLowerCase(),
                           ),
                         ),
+                        DB.MYSQL,
                       )}', ${q(field.name)}))`
                     : ""
                   : ` CHECK(${assertNoStatementBreak(field.check)})`
-              }${field.comment ? ` COMMENT '${escapeQuotes(field.comment)}'` : ""}`,
+              }${field.comment ? ` COMMENT '${escapeQuotes(field.comment, DB.MYSQL)}'` : ""}`,
           )
           .join(",\n")}${
           table.fields.filter((f) => f.primary).length > 0
@@ -247,7 +248,7 @@ export function jsonToMySQL(obj) {
                 .map((f) => q(f.name))
                 .join(", ")})`
             : ""
-        }${uniqueConstraintClause(table, q)}\n)${table.comment ? ` COMMENT='${escapeQuotes(table.comment)}'` : ""};\n${`\n${table.indices
+        }${uniqueConstraintClause(table, q)}\n)${table.comment ? ` COMMENT='${escapeQuotes(table.comment, DB.MYSQL)}'` : ""};\n${`\n${table.indices
           .map(
             (i) =>
               `CREATE ${i.unique ? "UNIQUE " : ""}INDEX ${q(i.name)}\nON ${q(table.name)} (${i.fields
@@ -503,10 +504,11 @@ export function jsonToMariaDB(obj) {
                             (t) => t.name === field.type.toLowerCase(),
                           ),
                         ),
+                        DB.MARIADB,
                       )}', ${q(field.name)}))`
                     : ""
                   : ` CHECK(${assertNoStatementBreak(field.check)})`
-              }${field.comment ? ` COMMENT '${escapeQuotes(field.comment)}'` : ""}`,
+              }${field.comment ? ` COMMENT '${escapeQuotes(field.comment, DB.MARIADB)}'` : ""}`,
           )
           .join(",\n")}${
           table.fields.filter((f) => f.primary).length > 0
@@ -515,7 +517,7 @@ export function jsonToMariaDB(obj) {
                 .map((f) => q(f.name))
                 .join(", ")})`
             : ""
-        }${uniqueConstraintClause(table, q)}\n)${table.comment ? ` COMMENT='${escapeQuotes(table.comment)}'` : ""};${`\n${table.indices
+        }${uniqueConstraintClause(table, q)}\n)${table.comment ? ` COMMENT='${escapeQuotes(table.comment, DB.MARIADB)}'` : ""};${`\n${table.indices
           .map(
             (i) =>
               `CREATE ${i.unique ? "UNIQUE " : ""}INDEX ${q(

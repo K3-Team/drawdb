@@ -19,7 +19,7 @@ function parseType(field) {
   let res = assertSafeType(field.type);
 
   if (field.type === "SET" || field.type === "ENUM") {
-    res += `${field.values ? "(" + field.values.map((value) => "'" + escapeQuotes(value) + "'").join(", ") + ")" : ""}`;
+    res += `${field.values ? "(" + field.values.map((value) => "'" + escapeQuotes(value, DB.MARIADB) + "'").join(", ") + ")" : ""}`;
   }
 
   if (
@@ -52,7 +52,7 @@ export function toMariaDB(diagram) {
                 !dbToTypes[diagram.database][field.type].hasCheck
                   ? ""
                   : ` CHECK(${assertNoStatementBreak(field.check)})`
-              }${field.comment ? ` COMMENT '${escapeQuotes(field.comment)}'` : ""}`,
+              }${field.comment ? ` COMMENT '${escapeQuotes(field.comment, DB.MARIADB)}'` : ""}`,
           )
           .join(",\n")}${
           table.fields.filter((f) => f.primary).length > 0
@@ -61,7 +61,7 @@ export function toMariaDB(diagram) {
                 .map((f) => q(f.name))
                 .join(", ")})`
             : ""
-        }${uniqueConstraintClause(table, q)}\n)${table.comment ? ` COMMENT='${escapeQuotes(table.comment)}'` : ""};${`\n${table.indices
+        }${uniqueConstraintClause(table, q)}\n)${table.comment ? ` COMMENT='${escapeQuotes(table.comment, DB.MARIADB)}'` : ""};${`\n${table.indices
           .map(
             (i) =>
               `\nCREATE ${i.unique ? "UNIQUE " : ""}INDEX ${q(

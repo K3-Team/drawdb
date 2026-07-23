@@ -28,7 +28,7 @@ export function parseDefault(field, database = DB.GENERIC) {
     return assertSafeDefault(field.default);
   }
 
-  return `'${escapeQuotes(field.default)}'`;
+  return `'${escapeQuotes(field.default, database)}'`;
 }
 
 export function exportFieldComment(comment) {

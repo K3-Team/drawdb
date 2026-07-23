@@ -131,11 +131,29 @@ export function assertSafeDefault(value) {
 
 // --- String literals ---------------------------------------------------
 
-// Doubles the single quote that closes a SQL string literal. Coerces first:
-// an imported .ddb can hold non-strings (e.g. numeric ENUM values), and a
-// TypeError here surfaces as an opaque "export failed" toast.
-export function escapeQuotes(str) {
-  return String(str ?? "").replace(/[']/g, "'$&");
+// Escapes a value for a single-quoted SQL string literal. The correct escape
+// is dialect-DEPENDENT, so this takes the dialect like quoteIdentifier does.
+//
+// MySQL and MariaDB honour backslash as a string-literal escape in the default
+// sql_mode: a value containing `\'` would otherwise become `\''`, where the
+// backslash neutralises the first quote and the second quote closes the
+// literal, leaving the rest live SQL (verified against MariaDB 11.4). Double
+// the backslashes FIRST -- so the ones added here are not re-escaped -- then
+// double the quotes.
+//
+// The ANSI dialects (Postgres, MSSQL, SQLite, Oracle) treat backslash as an
+// ordinary character; doubling it would corrupt legitimate values like the
+// default 'C:\temp'. ANSI is the default when `db` is omitted, which keeps the
+// non-SQL DBML exporter (its only other caller) unchanged.
+//
+// Coerces first: an imported .ddb can hold non-strings (e.g. numeric ENUM
+// values), and a TypeError here surfaces as an opaque "export failed" toast.
+export function escapeQuotes(str, db) {
+  const s = String(str ?? "");
+  if (db === DB.MYSQL || db === DB.MARIADB) {
+    return s.replace(/\\/g, "\\\\").replace(/'/g, "''");
+  }
+  return s.replace(/'/g, "''");
 }
 
 // --- Structural values -------------------------------------------------

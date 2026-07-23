@@ -19,7 +19,7 @@ function parseType(field) {
   let res = assertSafeType(field.type);
 
   if (field.type === "SET" || field.type === "ENUM") {
-    res += `${field.values ? "(" + field.values.map((value) => "'" + escapeQuotes(value) + "'").join(", ") + ")" : ""}`;
+    res += `${field.values ? "(" + field.values.map((value) => "'" + escapeQuotes(value, DB.MYSQL) + "'").join(", ") + ")" : ""}`;
   }
 
   if (
@@ -56,7 +56,7 @@ export function toMySQL(diagram) {
                 !dbToTypes[diagram.database][field.type].hasCheck
                   ? ""
                   : ` CHECK(${assertNoStatementBreak(field.check)})`
-              }${field.comment ? ` COMMENT '${escapeQuotes(field.comment)}'` : ""}`,
+              }${field.comment ? ` COMMENT '${escapeQuotes(field.comment, DB.MYSQL)}'` : ""}`,
           )
           .join(",\n")}${
           table.fields.filter((f) => f.primary).length > 0
@@ -65,7 +65,7 @@ export function toMySQL(diagram) {
                 .map((f) => q(f.name))
                 .join(", ")})`
             : ""
-        }${uniqueConstraintClause(table, q)}\n)${table.comment ? ` COMMENT='${escapeQuotes(table.comment)}'` : ""};\n${`\n${table.indices
+        }${uniqueConstraintClause(table, q)}\n)${table.comment ? ` COMMENT='${escapeQuotes(table.comment, DB.MYSQL)}'` : ""};\n${`\n${table.indices
           .map(
             (i) =>
               `\nCREATE ${i.unique ? "UNIQUE " : ""}INDEX ${q(

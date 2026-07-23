@@ -591,3 +591,44 @@ describe("oraclesql keeps its delimiters when comments are present", () => {
     expect(sql).toContain(");");
   });
 });
+
+// Backslash is a string-literal escape in MySQL/MariaDB default sql_mode, so
+// doubling only the quote (ANSI escaping) lets `\'` break out of the literal.
+describe("string literals cannot break out (MySQL backslash escape)", () => {
+  const PAYLOAD = "\\' ); DROP TABLE users; CREATE TABLE zzz (a INT #";
+
+  const families = [
+    [DB.MYSQL, false],
+    [DB.MARIADB, false],
+    [DB.POSTGRES, true],
+    [DB.MSSQL, true],
+    [DB.SQLITE, true],
+    [DB.ORACLESQL, true],
+  ];
+
+  for (const [db, ansi] of families) {
+    it(`${db} contains the payload inside the default literal`, () => {
+      const d = diagram(db);
+      d.tables[0].fields[0].type = db === DB.ORACLESQL ? "VARCHAR2" : "VARCHAR";
+      d.tables[0].fields[0].default = PAYLOAD;
+      const sql = exportSQL(d);
+      // The DROP must never sit outside a quoted literal. Strip every quoted
+      // '...' span (accounting for the dialect's own escaping) and assert the
+      // payload is gone -- i.e. it lived entirely inside a literal.
+      const unquoted = ansi
+        ? sql.replace(/'(?:''|[^'])*'/g, "''")
+        : sql.replace(/'(?:\\.|''|[^'\\])*'/g, "''");
+      expect(unquoted).not.toContain("DROP TABLE users");
+    });
+  }
+
+  it("round-trips a windows path default on MySQL and Postgres", () => {
+    const m = diagram(DB.MYSQL);
+    m.tables[0].fields[0].default = "C:\\temp";
+    expect(exportSQL(m)).toContain("DEFAULT 'C:\\\\temp'");
+
+    const p = diagram(DB.POSTGRES);
+    p.tables[0].fields[0].default = "C:\\temp";
+    expect(exportSQL(p)).toContain("DEFAULT 'C:\\temp'");
+  });
+});

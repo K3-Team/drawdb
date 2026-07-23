@@ -31,7 +31,7 @@ function parseType(field, db) {
   const meta = dbToTypes[db]?.[field.type];
   if (field.type === "SET" || field.type === "ENUM") {
     res += field.values
-      ? `(${field.values.map((v) => `'${escapeQuotes(String(v))}'`).join(", ")})`
+      ? `(${field.values.map((v) => `'${escapeQuotes(String(v), db)}'`).join(", ")})`
       : "";
   } else if (meta?.isSized || meta?.hasPrecision) {
     res += field.size ? `(${assertSafeSize(field.size)})` : "";
@@ -73,7 +73,7 @@ function columnDefinition(field, db) {
   if (field.check && meta?.hasCheck)
     sql += ` CHECK(${assertNoStatementBreak(field.check)})`;
   if ((db === DB.MYSQL || db === DB.MARIADB) && field.comment?.trim()) {
-    sql += ` COMMENT '${escapeQuotes(field.comment)}'`;
+    sql += ` COMMENT '${escapeQuotes(field.comment, db)}'`;
   }
   if (db === DB.POSTGRES && field.isArray) sql += " ARRAY";
 
@@ -97,7 +97,7 @@ function toTable(table, db) {
     fieldDefs = table.fields
       .map(
         (f) =>
-          `\t${q(f.name)} ${parseType(f, db)}${db === DB.MYSQL && meta(f)?.signed && f.unsigned ? " UNSIGNED" : ""}${f.notNull ? " NOT NULL" : ""}${f.increment ? " AUTO_INCREMENT" : ""}${f.unique ? " UNIQUE" : ""}${f.default !== "" ? ` DEFAULT ${parseDefault(f, db)}` : ""}${f.check && meta(f)?.hasCheck ? ` CHECK(${assertNoStatementBreak(f.check)})` : ""}${f.comment ? ` COMMENT '${escapeQuotes(f.comment)}'` : ""}`,
+          `\t${q(f.name)} ${parseType(f, db)}${db === DB.MYSQL && meta(f)?.signed && f.unsigned ? " UNSIGNED" : ""}${f.notNull ? " NOT NULL" : ""}${f.increment ? " AUTO_INCREMENT" : ""}${f.unique ? " UNIQUE" : ""}${f.default !== "" ? ` DEFAULT ${parseDefault(f, db)}` : ""}${f.check && meta(f)?.hasCheck ? ` CHECK(${assertNoStatementBreak(f.check)})` : ""}${f.comment ? ` COMMENT '${escapeQuotes(f.comment, db)}'` : ""}`,
       )
       .join(",\n");
   } else if (db === DB.SQLITE) {
@@ -159,20 +159,20 @@ function toTable(table, db) {
   if ((db === DB.MYSQL || db === DB.MARIADB) && table.comment?.trim()) {
     create = create.replace(
       ");",
-      `) COMMENT='${escapeQuotes(table.comment)}';`,
+      `) COMMENT='${escapeQuotes(table.comment, db)}';`,
     );
   }
 
   let extra = "";
   if (db === DB.POSTGRES || db === DB.ORACLESQL) {
     const t = table.comment?.trim()
-      ? `COMMENT ON TABLE ${q(table.name)} IS '${escapeQuotes(table.comment)}';`
+      ? `COMMENT ON TABLE ${q(table.name)} IS '${escapeQuotes(table.comment, db)}';`
       : "";
     const cols = table.fields
       .filter((f) => f.comment?.trim())
       .map(
         (f) =>
-          `COMMENT ON COLUMN ${q(table.name)}.${q(f.name)} IS '${escapeQuotes(f.comment)}'`,
+          `COMMENT ON COLUMN ${q(table.name)}.${q(f.name)} IS '${escapeQuotes(f.comment, db)}'`,
       )
       .join(";\n");
     extra = [t, cols].filter(Boolean).join("\n");
@@ -233,7 +233,7 @@ function toTypeDefinition(type, database, q) {
     .join(",\n");
   let s = `CREATE TYPE ${q(type.name)} AS (\n${fields}\n);`;
   if (type.comment?.trim()) {
-    s += `\nCOMMENT ON TYPE ${q(type.name)} IS '${escapeQuotes(type.comment)}';`;
+    s += `\nCOMMENT ON TYPE ${q(type.name)} IS '${escapeQuotes(type.comment, database)}';`;
   }
   return s;
 }
@@ -241,7 +241,7 @@ function toTypeDefinition(type, database, q) {
 function toEnumDefinition(e, database, q) {
   if (!e || !databases[database]?.hasEnums) return null;
   const values = (e.values || [])
-    .map((v) => `\t'${escapeQuotes(String(v))}'`)
+    .map((v) => `\t'${escapeQuotes(String(v), database)}'`)
     .join(",\n");
   return `CREATE TYPE ${q(e.name)} AS ENUM (\n${values}\n);`;
 }
@@ -455,10 +455,10 @@ export const generateMigrationSQL = (
               case "comment": {
                 if (database === DB.MYSQL || database === DB.MARIADB) {
                   up.push(
-                    `ALTER TABLE ${q(name)} MODIFY COLUMN ${q(columnName)} ${columnType} COMMENT '${escapeQuotes(String(change.to ?? ""))}';`,
+                    `ALTER TABLE ${q(name)} MODIFY COLUMN ${q(columnName)} ${columnType} COMMENT '${escapeQuotes(String(change.to ?? ""), database)}';`,
                   );
                   down.push(
-                    `ALTER TABLE ${q(name)} MODIFY COLUMN ${q(columnName)} ${columnType} COMMENT '${escapeQuotes(String(change.from ?? ""))}';`,
+                    `ALTER TABLE ${q(name)} MODIFY COLUMN ${q(columnName)} ${columnType} COMMENT '${escapeQuotes(String(change.from ?? ""), database)}';`,
                   );
                 } else if (database === DB.MSSQL) {
                   up.push(
@@ -468,18 +468,14 @@ export const generateMigrationSQL = (
                     `EXEC sp_addextendedproperty @name=N'MS_Description', @value=N'${mssqlLiteral(change.from)}', @level0type=N'SCHEMA',@level0name=N'dbo', @level1type=N'TABLE',@level1name=N'${mssqlLiteral(name)}', @level2type=N'COLUMN',@level2name=N'${mssqlLiteral(columnName)}';`,
                   );
                 } else if (database === DB.SQLITE) {
-                  up.push(
-                    `-- ${sqlLineComment(change.to)};`,
-                  );
-                  down.push(
-                    `-- ${sqlLineComment(change.from)};`,
-                  );
+                  up.push(`-- ${sqlLineComment(change.to)};`);
+                  down.push(`-- ${sqlLineComment(change.from)};`);
                 } else {
                   up.push(
-                    `COMMENT ON COLUMN ${q(name)}.${q(columnName)} IS '${escapeQuotes(String(change.to ?? ""))}';`,
+                    `COMMENT ON COLUMN ${q(name)}.${q(columnName)} IS '${escapeQuotes(String(change.to ?? ""), database)}';`,
                   );
                   down.push(
-                    `COMMENT ON COLUMN ${q(name)}.${q(columnName)} IS '${escapeQuotes(String(change.from ?? ""))}';`,
+                    `COMMENT ON COLUMN ${q(name)}.${q(columnName)} IS '${escapeQuotes(String(change.from ?? ""), database)}';`,
                   );
                 }
                 break;
@@ -728,17 +724,17 @@ export const generateMigrationSQL = (
           if (childPart === "comment") {
             if (database === DB.POSTGRES || database === DB.ORACLESQL) {
               up.push(
-                `COMMENT ON TABLE ${q(name)} IS '${escapeQuotes(String(change.to ?? ""))}';`,
+                `COMMENT ON TABLE ${q(name)} IS '${escapeQuotes(String(change.to ?? ""), database)}';`,
               );
               down.push(
-                `COMMENT ON TABLE ${q(name)} IS '${escapeQuotes(String(change.from ?? ""))}';`,
+                `COMMENT ON TABLE ${q(name)} IS '${escapeQuotes(String(change.from ?? ""), database)}';`,
               );
             } else if (database === DB.MYSQL || database === DB.MARIADB) {
               up.push(
-                `ALTER TABLE ${q(name)} COMMENT='${escapeQuotes(String(change.to ?? ""))}';`,
+                `ALTER TABLE ${q(name)} COMMENT='${escapeQuotes(String(change.to ?? ""), database)}';`,
               );
               down.push(
-                `ALTER TABLE ${q(name)} COMMENT='${escapeQuotes(String(change.from ?? ""))}';`,
+                `ALTER TABLE ${q(name)} COMMENT='${escapeQuotes(String(change.from ?? ""), database)}';`,
               );
             } else if (database === DB.MSSQL) {
               up.push(
@@ -748,12 +744,8 @@ export const generateMigrationSQL = (
                 `EXEC sp_addextendedproperty @name=N'MS_Description', @value=N'${mssqlLiteral(change.from)}', @level0type=N'SCHEMA',@level0name=N'dbo', @level1type=N'TABLE',@level1name=N'${mssqlLiteral(name)}';`,
               );
             } else if (database === DB.SQLITE) {
-              up.push(
-                `-- TABLE COMMENT: ${sqlLineComment(change.to)}`,
-              );
-              down.push(
-                `-- TABLE COMMENT: ${sqlLineComment(change.from)}`,
-              );
+              up.push(`-- TABLE COMMENT: ${sqlLineComment(change.to)}`);
+              down.push(`-- TABLE COMMENT: ${sqlLineComment(change.from)}`);
             }
           }
 
@@ -762,8 +754,12 @@ export const generateMigrationSQL = (
               up.push(`RENAME TABLE ${q(change.from)} TO ${q(change.to)};`);
               down.push(`RENAME TABLE ${q(change.to)} TO ${q(change.from)};`);
             } else if (database === DB.MSSQL) {
-              up.push(`EXEC sp_rename '${mssqlLiteral(change.from)}', '${mssqlLiteral(change.to)}';`);
-              down.push(`EXEC sp_rename '${mssqlLiteral(change.to)}', '${mssqlLiteral(change.from)}';`);
+              up.push(
+                `EXEC sp_rename '${mssqlLiteral(change.from)}', '${mssqlLiteral(change.to)}';`,
+              );
+              down.push(
+                `EXEC sp_rename '${mssqlLiteral(change.to)}', '${mssqlLiteral(change.from)}';`,
+              );
             } else {
               up.push(
                 `ALTER TABLE ${q(change.from)} RENAME TO ${q(change.to)};`,
@@ -866,10 +862,10 @@ export const generateMigrationSQL = (
         }
         if (prop === "comment") {
           up.push(
-            `COMMENT ON TYPE ${q(name)} IS '${escapeQuotes(String(change.to ?? ""))}';`,
+            `COMMENT ON TYPE ${q(name)} IS '${escapeQuotes(String(change.to ?? ""), database)}';`,
           );
           down.push(
-            `COMMENT ON TYPE ${q(name)} IS '${escapeQuotes(String(change.from ?? ""))}';`,
+            `COMMENT ON TYPE ${q(name)} IS '${escapeQuotes(String(change.from ?? ""), database)}';`,
           );
         }
         if (prop.startsWith("fields")) {
@@ -941,7 +937,9 @@ export const generateMigrationSQL = (
         }
         if (prop === "values") {
           const vals = (arr) =>
-            (arr || []).map((v) => `'${escapeQuotes(String(v))}'`).join(", ");
+            (arr || [])
+              .map((v) => `'${escapeQuotes(String(v), database)}'`)
+              .join(", ");
           up.push(`DROP TYPE ${q(name)};`);
           up.push(`CREATE TYPE ${q(name)} AS ENUM (${vals(change.to)});`);
           down.push(`DROP TYPE ${q(name)};`);
