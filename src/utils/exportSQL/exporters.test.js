@@ -9,6 +9,7 @@ import {
   jsonToOracleSQL,
 } from "./generic";
 import { generateMigrationSQL } from "../migrations/diffToSQL";
+import { parseDefault } from "./shared";
 import { DB } from "../../data/constants";
 
 // Contains every identifier delimiter used by any supported dialect.
@@ -193,6 +194,22 @@ describe("generateMigrationSQL escapes MSSQL string literals", () => {
       expect(literals).not.toContain(QUOTED);
     });
   }
+});
+
+// parseDefault emits field.default verbatim when isFunction() says it is a
+// call, so an unanchored isFunction let a payload ending in "now()" skip
+// quoting entirely.
+describe("parseDefault quotes a default that only ends in a call", () => {
+  it("does not treat a payload ending in now() as a function", () => {
+    const field = { default: "x'; DROP TABLE t; -- now()", type: "VARCHAR" };
+    expect(parseDefault(field, DB.MYSQL)).toBe("'x''; DROP TABLE t; -- now()'");
+  });
+
+  it("still emits a genuine function call unquoted", () => {
+    expect(parseDefault({ default: "now()", type: "VARCHAR" }, DB.MYSQL)).toBe(
+      "now()",
+    );
+  });
 });
 
 describe("CHECK expressions that can break the statement are refused", () => {

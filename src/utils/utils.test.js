@@ -19,9 +19,11 @@ describe("isKeyword", () => {
 describe("isFunction", () => {
   it("accepts a bare function call", () => {
     expect(isFunction("now()")).toBe(true);
+    expect(isFunction("CURRENT_TIMESTAMP()")).toBe(true);
   });
 
   it("rejects a payload that merely ends in a call", () => {
-    expect(isFunction("now(); DROP TABLE t; --()")).toBe(false);
+    // Unanchored /\w+\([^)]*\)$/ matched this; the anchored form must not.
+    expect(isFunction("x'; DROP TABLE t; -- now()")).toBe(false);
   });
 });
