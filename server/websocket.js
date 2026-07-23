@@ -9,6 +9,7 @@ import {
   MESSAGE_TYPES,
 } from "./protocol.js";
 import { createTableLockManager } from "./tableLocks.js";
+import { authenticateToken, isOriginAllowed } from "./auth.js";
 
 const MAX_MESSAGE_BYTES = 2 * 1024 * 1024;
 
@@ -18,7 +19,11 @@ function send(socket, message) {
   }
 }
 
-export function attachCollaborationServer(server, store) {
+export function attachCollaborationServer(
+  server,
+  store,
+  { tokens, allowedOrigins } = {},
+) {
   const wss = new WebSocketServer({
     noServer: true,
     maxPayload: MAX_MESSAGE_BYTES,
@@ -64,8 +69,24 @@ export function attachCollaborationServer(server, store) {
       socket.destroy();
       return;
     }
+    if (!isOriginAllowed(allowedOrigins, request.headers.origin)) {
+      socket.write("HTTP/1.1 403 Forbidden\r\n\r\n");
+      socket.destroy();
+      return;
+    }
+    let identity = null;
+    if (tokens && tokens.size > 0) {
+      const token = url.searchParams.get("token");
+      identity = authenticateToken(tokens, token);
+      if (!identity) {
+        socket.write("HTTP/1.1 401 Unauthorized\r\n\r\n");
+        socket.destroy();
+        return;
+      }
+    }
     wss.handleUpgrade(request, socket, head, (ws) => {
       ws.diagramId = diagramId;
+      ws.identity = identity;
       wss.emit("connection", ws, request);
     });
   });
@@ -99,14 +120,23 @@ export function attachCollaborationServer(server, store) {
       }
 
       if (message.type === MESSAGE_TYPES.JOIN) {
-        if (!isValidParticipant(message.participant)) {
+        // In dev/open mode (no authenticated identity) the client supplies its
+        // own participant, so validate it. When authenticated, identity is
+        // derived from the token and the client's claim is ignored entirely.
+        if (!socket.identity && !isValidParticipant(message.participant)) {
           send(socket, {
             type: MESSAGE_TYPES.ERROR,
             message: "Invalid participant",
           });
           return;
         }
-        socket.participant = message.participant;
+        socket.participant = socket.identity
+          ? {
+              clientId: socket.identity.userId,
+              displayName: socket.identity.displayName,
+              color: socket.identity.color,
+            }
+          : message.participant; // dev/open mode (no tokens) falls back to client-supplied
         const diagram = store.get(diagramId);
         send(socket, {
           type: MESSAGE_TYPES.JOINED,

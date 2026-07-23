@@ -4,7 +4,7 @@ import http from "node:http";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import express from "express";
-import { loadTokens, requireAuth } from "./auth.js";
+import { loadTokens, requireAuth, loadAllowedOrigins } from "./auth.js";
 import { createDiagramStore, openDatabase } from "./database.js";
 import { DIAGRAM_ID_PATTERN, isPlainObject } from "./protocol.js";
 import { attachCollaborationServer } from "./websocket.js";
@@ -125,7 +125,10 @@ export function createApplication({ databasePath, staticPath } = {}) {
   });
 
   const server = http.createServer(app);
-  const websocket = attachCollaborationServer(server, store);
+  const websocket = attachCollaborationServer(server, store, {
+    tokens,
+    allowedOrigins: loadAllowedOrigins(),
+  });
   return { app, server, websocket, database, store, tokens };
 }
 

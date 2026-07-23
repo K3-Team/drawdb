@@ -1,6 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { loadTokens, authenticateToken, requireAuth } from "./auth.js";
+import {
+  loadTokens,
+  authenticateToken,
+  requireAuth,
+  loadAllowedOrigins,
+  isOriginAllowed,
+} from "./auth.js";
 import { createApplication } from "./index.js";
 
 /* global process */
@@ -82,6 +88,25 @@ test("requireAuth returns 401 when tokens are configured and no/invalid Bearer i
   assert.equal(nextCalled, true);
   assert.equal(ctx.getStatus(), null);
   assert.equal(ctx.req.user.userId, "u1");
+});
+
+test("isOriginAllowed enforces the allowlist and rejects missing origins", () => {
+  const allowed = new Set(["https://x"]);
+  assert.equal(isOriginAllowed(allowed, "https://x"), true);
+  assert.equal(isOriginAllowed(allowed, "https://evil.example"), false);
+  // Missing origin when a set is configured is rejected.
+  assert.equal(isOriginAllowed(allowed, undefined), false);
+});
+
+test("loadAllowedOrigins returns null (allow-all) when unset, and null allows anything", () => {
+  assert.equal(loadAllowedOrigins(undefined), null);
+  assert.equal(loadAllowedOrigins(""), null);
+  assert.equal(isOriginAllowed(null, "https://anything"), true);
+  assert.equal(isOriginAllowed(null, undefined), true);
+
+  const allowed = loadAllowedOrigins("https://a, https://b");
+  assert.equal(allowed.has("https://a"), true);
+  assert.equal(allowed.has("https://b"), true);
 });
 
 test("createApplication fails closed when auth is required but no tokens configured", () => {

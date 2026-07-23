@@ -58,3 +58,18 @@ export function requireAuth(tokens) {
     next();
   };
 }
+
+export function loadAllowedOrigins(source = process.env.ALLOWED_ORIGINS) {
+  if (!source) return null; // null = allow all (dev)
+  return new Set(
+    source
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean),
+  );
+}
+
+export function isOriginAllowed(allowed, origin) {
+  if (allowed === null) return true;
+  return typeof origin === "string" && allowed.has(origin);
+}

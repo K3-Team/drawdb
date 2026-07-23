@@ -6,6 +6,8 @@ import { createApplication } from "./index.js";
 import { isValidOperationPreview } from "./protocol.js";
 import { createTableLockManager } from "./tableLocks.js";
 
+/* global process */
+
 function waitForMessage(socket, predicate) {
   return new Promise((resolve, reject) => {
     const timeout = setTimeout(() => {
@@ -23,12 +25,25 @@ function waitForMessage(socket, predicate) {
   });
 }
 
-function openSocket(url) {
+function openSocket(url, options) {
   return new Promise((resolve, reject) => {
-    const socket = new WebSocket(url);
+    const socket = options ? new WebSocket(url, options) : new WebSocket(url);
     socket.once("open", () => resolve(socket));
     socket.once("error", reject);
   });
+}
+
+const COLLAB_ENV_KEYS = ["COLLAB_TOKENS", "COLLAB_TOKENS_FILE", "ALLOWED_ORIGINS"];
+
+function saveCollabEnv() {
+  const saved = {};
+  for (const key of COLLAB_ENV_KEYS) saved[key] = process.env[key];
+  return () => {
+    for (const key of COLLAB_ENV_KEYS) {
+      if (saved[key] === undefined) delete process.env[key];
+      else process.env[key] = saved[key];
+    }
+  };
 }
 
 test("diagram persistence enforces optimistic versions and operation IDs", () => {
@@ -253,4 +268,169 @@ test("WebSocket table locks reject concurrent edits", async (t) => {
     }),
   );
   assert.equal((await grantedB).lock.clientId, "client-b");
+});
+
+test("WS upgrade rejects when tokens are configured but no token is supplied", async (t) => {
+  const restoreEnv = saveCollabEnv();
+  t.after(restoreEnv);
+  delete process.env.ALLOWED_ORIGINS;
+  process.env.COLLAB_TOKENS =
+    '{"tok-ann":{"userId":"user-ann","displayName":"Ann","color":"#123456"}}';
+
+  const application = createApplication({ databasePath: ":memory:" });
+  application.store.create({
+    id: "diagram-auth",
+    name: "Auth test",
+    document: { tables: [] },
+  });
+  await new Promise((resolve) =>
+    application.server.listen(0, "127.0.0.1", resolve),
+  );
+  const { port } = application.server.address();
+  t.after(() => {
+    application.websocket.close();
+    application.server.close();
+    application.database.close();
+  });
+
+  // No ?token= => handshake must fail (401), socket never opens.
+  await assert.rejects(
+    openSocket(`ws://127.0.0.1:${port}/ws/diagrams/diagram-auth`),
+    /401|unexpected server response/i,
+  );
+});
+
+test("WS upgrade rejects a disallowed Origin when an allowlist is configured", async (t) => {
+  const restoreEnv = saveCollabEnv();
+  t.after(restoreEnv);
+  delete process.env.COLLAB_TOKENS;
+  delete process.env.COLLAB_TOKENS_FILE;
+  process.env.ALLOWED_ORIGINS = "https://good.example";
+
+  const application = createApplication({ databasePath: ":memory:" });
+  application.store.create({
+    id: "diagram-origin",
+    name: "Origin test",
+    document: { tables: [] },
+  });
+  await new Promise((resolve) =>
+    application.server.listen(0, "127.0.0.1", resolve),
+  );
+  const { port } = application.server.address();
+  t.after(() => {
+    application.websocket.close();
+    application.server.close();
+    application.database.close();
+  });
+
+  // Foreign Origin => 403, socket never opens.
+  await assert.rejects(
+    openSocket(`ws://127.0.0.1:${port}/ws/diagrams/diagram-origin`, {
+      origin: "https://evil.example",
+    }),
+    /403|unexpected server response/i,
+  );
+});
+
+test("WS derives participant identity from the token, ignoring a lying client", async (t) => {
+  const restoreEnv = saveCollabEnv();
+  t.after(restoreEnv);
+  delete process.env.ALLOWED_ORIGINS;
+  process.env.COLLAB_TOKENS =
+    '{"tok-ann":{"userId":"user-ann","displayName":"Ann","color":"#123456"}}';
+
+  const application = createApplication({ databasePath: ":memory:" });
+  application.store.create({
+    id: "diagram-identity",
+    name: "Identity test",
+    document: { tables: [] },
+  });
+  await new Promise((resolve) =>
+    application.server.listen(0, "127.0.0.1", resolve),
+  );
+  const { port } = application.server.address();
+  t.after(() => {
+    application.websocket.close();
+    application.server.close();
+    application.database.close();
+  });
+
+  const socket = await openSocket(
+    `ws://127.0.0.1:${port}/ws/diagrams/diagram-identity?token=tok-ann`,
+  );
+  t.after(() => socket.close());
+
+  const presence = waitForMessage(
+    socket,
+    (message) => message.type === "presence",
+  );
+  // Client LIES about its identity — server must ignore this.
+  socket.send(
+    JSON.stringify({
+      type: "join",
+      diagramId: "diagram-identity",
+      lastVersion: 0,
+      participant: {
+        clientId: "attacker",
+        displayName: "Mallory",
+        color: "#000000",
+      },
+    }),
+  );
+  const { participants } = await presence;
+  assert.equal(participants.length, 1);
+  // Identity comes from the TOKEN, not the client's lie.
+  assert.equal(participants[0].clientId, "user-ann");
+  assert.equal(participants[0].displayName, "Ann");
+  assert.equal(participants[0].color, "#123456");
+});
+
+test("WS dev mode (no tokens) preserves client-supplied participant identity", async (t) => {
+  const restoreEnv = saveCollabEnv();
+  t.after(restoreEnv);
+  delete process.env.COLLAB_TOKENS;
+  delete process.env.COLLAB_TOKENS_FILE;
+  delete process.env.ALLOWED_ORIGINS;
+
+  const application = createApplication({ databasePath: ":memory:" });
+  application.store.create({
+    id: "diagram-dev",
+    name: "Dev test",
+    document: { tables: [] },
+  });
+  await new Promise((resolve) =>
+    application.server.listen(0, "127.0.0.1", resolve),
+  );
+  const { port } = application.server.address();
+  t.after(() => {
+    application.websocket.close();
+    application.server.close();
+    application.database.close();
+  });
+
+  const socket = await openSocket(
+    `ws://127.0.0.1:${port}/ws/diagrams/diagram-dev`,
+  );
+  t.after(() => socket.close());
+
+  const presence = waitForMessage(
+    socket,
+    (message) => message.type === "presence",
+  );
+  socket.send(
+    JSON.stringify({
+      type: "join",
+      diagramId: "diagram-dev",
+      lastVersion: 0,
+      participant: {
+        clientId: "client-dev",
+        displayName: "Dev User",
+        color: "#abcdef",
+      },
+    }),
+  );
+  const { participants } = await presence;
+  assert.equal(participants.length, 1);
+  assert.equal(participants[0].clientId, "client-dev");
+  assert.equal(participants[0].displayName, "Dev User");
 });

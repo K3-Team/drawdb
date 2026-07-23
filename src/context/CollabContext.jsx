@@ -158,9 +158,10 @@ export default function CollabContextProvider({ children }) {
       if (!session || socketRef.current?.readyState === WebSocket.OPEN) return;
       setConnectionState(CONNECTION_STATE.CONNECTING);
       const scheme = window.location.protocol === "https:" ? "wss:" : "ws:";
-      const socket = new WebSocket(
-        `${scheme}//${window.location.host}/ws/diagrams/${encodeURIComponent(session.diagramId)}`,
-      );
+      const token = localStorage.getItem("drawdb-collab-token");
+      const base = `${scheme}//${window.location.host}/ws/diagrams/${encodeURIComponent(session.diagramId)}`;
+      const wsUrl = token ? `${base}?token=${encodeURIComponent(token)}` : base;
+      const socket = new WebSocket(wsUrl);
       socketRef.current = socket;
       socket.onopen = () => {
         socket.send(
