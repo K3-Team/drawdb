@@ -155,6 +155,59 @@ test("table edit leases are exclusive and expire", () => {
   assert.notEqual(acquiredAfterExpiry.lock.token, acquired.lock.token);
 });
 
+test("table lock fencing tokens are unpredictable, not sequential integers", () => {
+  const locks = createTableLockManager({ now: () => 1_000 });
+  const participantA = {
+    clientId: "client-a",
+    displayName: "A",
+    color: "#000",
+  };
+  const participantB = {
+    clientId: "client-b",
+    displayName: "B",
+    color: "#fff",
+  };
+
+  const lockOne = locks.acquire("diagram-1", "table-1", participantA);
+  const lockTwo = locks.acquire("diagram-1", "table-2", participantB);
+
+  // Tokens are opaque random strings, not small sequential integers like the
+  // old `1`, `2`, ... fencing counter.
+  assert.equal(typeof lockOne.lock.token, "string");
+  assert.equal(typeof lockTwo.lock.token, "string");
+  assert.ok(lockOne.lock.token.length >= 20);
+  assert.ok(lockTwo.lock.token.length >= 20);
+  assert.notEqual(lockOne.lock.token, lockTwo.lock.token);
+
+  // Re-acquiring one's own lock on the same table is idempotent: same token.
+  const reacquired = locks.acquire("diagram-1", "table-1", participantA);
+  assert.equal(reacquired.granted, true);
+  assert.equal(reacquired.lock.token, lockOne.lock.token);
+
+  // A guessed/wrong token (a short sequential-looking string, or a
+  // differently-shaped UUID) must be rejected by renew and release, while the
+  // real token succeeds.
+  assert.equal(locks.renew("diagram-1", "table-1", "client-a", "1"), false);
+  assert.equal(
+    locks.renew(
+      "diagram-1",
+      "table-1",
+      "client-a",
+      "00000000-0000-0000-0000-000000000000",
+    ),
+    false,
+  );
+  assert.equal(
+    locks.renew("diagram-1", "table-1", "client-a", lockOne.lock.token),
+    true,
+  );
+  assert.equal(locks.release("diagram-1", "table-1", "client-a", "1"), false);
+  assert.equal(
+    locks.release("diagram-1", "table-1", "client-a", lockOne.lock.token),
+    true,
+  );
+});
+
 test("WebSocket table locks reject concurrent edits", async (t) => {
   const application = createApplication({ databasePath: ":memory:" });
   application.store.create({
@@ -537,4 +590,43 @@ test("WS dev mode (no tokens) preserves client-supplied participant identity", a
   assert.equal(participants[0].color, "#abcdef");
   assert.equal(participants[0].clientId, clientId);
   assert.notEqual(participants[0].clientId, "client-dev");
+});
+
+test("DELETE /api/diagrams/:id requires auth: 401 without a token, 204 with the right one", async (t) => {
+  const restoreEnv = saveCollabEnv();
+  t.after(restoreEnv);
+  delete process.env.ALLOWED_ORIGINS;
+  process.env.COLLAB_TOKENS =
+    '{"tok-ann":{"userId":"user-ann","displayName":"Ann","color":"#123456"}}';
+
+  const application = createApplication({ databasePath: ":memory:" });
+  application.store.create({
+    id: "diagram-delete-auth",
+    name: "Delete auth test",
+    document: { tables: [] },
+  });
+  await new Promise((resolve) =>
+    application.server.listen(0, "127.0.0.1", resolve),
+  );
+  const { port } = application.server.address();
+  t.after(() => {
+    application.websocket.close();
+    application.server.close();
+    application.database.close();
+  });
+
+  const url = `http://127.0.0.1:${port}/api/diagrams/diagram-delete-auth`;
+
+  // No Authorization header => 401, diagram must remain untouched.
+  const unauthenticated = await fetch(url, { method: "DELETE" });
+  assert.equal(unauthenticated.status, 401);
+  assert.ok(application.store.get("diagram-delete-auth"));
+
+  // Valid Bearer token => the delete is actually performed.
+  const authenticated = await fetch(url, {
+    method: "DELETE",
+    headers: { Authorization: "Bearer tok-ann" },
+  });
+  assert.equal(authenticated.status, 204);
+  assert.equal(application.store.get("diagram-delete-auth"), null);
 });

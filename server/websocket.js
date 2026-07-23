@@ -297,7 +297,8 @@ export function attachCollaborationServer(
       if (message.type === MESSAGE_TYPES.TABLE_LOCK_RENEW) {
         if (
           isValidEntityId(message.tableId) &&
-          Number.isInteger(message.token) &&
+          typeof message.token === "string" &&
+          CLIENT_ID_PATTERN.test(message.token) &&
           tableLocks.renew(
             diagramId,
             message.tableId,
@@ -313,7 +314,8 @@ export function attachCollaborationServer(
       if (message.type === MESSAGE_TYPES.TABLE_LOCK_RELEASE) {
         if (
           isValidEntityId(message.tableId) &&
-          Number.isInteger(message.token) &&
+          typeof message.token === "string" &&
+          CLIENT_ID_PATTERN.test(message.token) &&
           tableLocks.release(
             diagramId,
             message.tableId,

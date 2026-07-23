@@ -1,3 +1,5 @@
+import crypto from "node:crypto";
+
 const DEFAULT_LEASE_MS = 12_000;
 
 export function createTableLockManager({
@@ -5,7 +7,6 @@ export function createTableLockManager({
   now = () => Date.now(),
 } = {}) {
   const locksByDiagram = new Map();
-  let fencingToken = 0;
 
   const locksFor = (diagramId) => {
     if (!locksByDiagram.has(diagramId)) {
@@ -49,7 +50,7 @@ export function createTableLockManager({
         clientId: participant.clientId,
         displayName: participant.displayName,
         color: participant.color,
-        token: existing?.token ?? ++fencingToken,
+        token: existing?.token ?? crypto.randomUUID(),
         expiresAt: now() + leaseMs,
       };
       locks.set(tableId, lock);
