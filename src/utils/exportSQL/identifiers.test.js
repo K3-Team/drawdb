@@ -5,6 +5,10 @@ import {
   safeConstraint,
   assertNoStatementBreak,
   assertSafeDefault,
+  assertSafeSize,
+  assertSafeType,
+  sqlBlockComment,
+  sqlLineComment,
 } from "./identifiers";
 import { DB, Constraint } from "../../data/constants";
 
@@ -163,5 +167,56 @@ describe("assertSafeDefault", () => {
   it("rejects comment introducers in either position", () => {
     expect(() => assertSafeDefault("f('a' -- )")).toThrow();
     expect(() => assertSafeDefault("1--2")).toThrow();
+  });
+});
+
+describe("assertSafeSize", () => {
+  it("allows plain and precision sizes", () => {
+    expect(assertSafeSize("255")).toBe("255");
+    expect(assertSafeSize("10,2")).toBe("10,2");
+    expect(assertSafeSize("")).toBe("");
+  });
+
+  it("rejects a size that closes the type's parentheses", () => {
+    expect(() => assertSafeSize("255), evil INT DEFAULT (1")).toThrow(
+      /column size/,
+    );
+    expect(() => assertSafeSize("1)--")).toThrow();
+  });
+});
+
+describe("assertSafeType", () => {
+  it("allows plain, sized and multi-word type names", () => {
+    for (const t of [
+      "VARCHAR",
+      "NUMBER(38,0)",
+      "DOUBLE PRECISION",
+      "timestamp with time zone",
+      "my_custom_type",
+    ]) {
+      expect(assertSafeType(t)).toBe(t);
+    }
+  });
+
+  it("rejects a type that grafts on another column", () => {
+    // Every character here is in the allowlist; only the top-level comma
+    // distinguishes it from a legitimate NUMBER(38,0).
+    expect(() => assertSafeType("INT, evil INT")).toThrow(/commas inside/);
+    expect(() => assertSafeType("INT); DROP TABLE t; --")).toThrow(/type name/);
+    expect(() => assertSafeType("INT) , evil INT (")).toThrow(/type name/);
+    expect(() => assertSafeType("INT'")).toThrow(/type name/);
+  });
+});
+
+describe("comment neutralisers", () => {
+  it("stops a block comment from closing early", () => {
+    expect(sqlBlockComment("a */ DROP TABLE t; /*")).toBe(
+      "a * / DROP TABLE t; /*",
+    );
+  });
+
+  it("keeps a line comment on one line", () => {
+    expect(sqlLineComment("a\nDROP TABLE t")).toBe("a DROP TABLE t");
+    expect(sqlLineComment("a\r\nDROP TABLE t")).toBe("a DROP TABLE t");
   });
 });

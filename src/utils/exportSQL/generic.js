@@ -12,6 +12,8 @@ import {
   quoterFor,
   safeConstraint,
   assertNoStatementBreak,
+  assertSafeSize,
+  assertSafeType,
 } from "./identifiers";
 
 export function getJsonType(f) {
@@ -66,17 +68,17 @@ export function getTypeString(
       dbToTypes[currentDb][field.type].isSized ||
       dbToTypes[currentDb][field.type].hasPrecision
     ) {
-      return `${field.type}${field.size ? `(${field.size})` : ""}`;
+      return `${assertSafeType(field.type)}${field.size ? `(${assertSafeSize(field.size)})` : ""}`;
     }
     if (field.type === "SET" || field.type === "ENUM") {
-      return `${field.type}(${field.values
+      return `${assertSafeType(field.type)}(${field.values
         .map((v) => `'${escapeQuotes(String(v))}'`)
         .join(", ")})`;
     }
     if (!Object.keys(defaultTypes).includes(field.type)) {
       return "JSON";
     }
-    return field.type;
+    return assertSafeType(field.type);
   } else if (dbms === DB.POSTGRES) {
     if (field.type === "SMALLINT" && field.increment) {
       return "smallserial";
@@ -106,18 +108,18 @@ export function getTypeString(
           : field.type === "VARBINARY"
             ? "bit varying"
             : field.type.toLowerCase();
-      return `${type}(${field.size})`;
+      return `${assertSafeType(type)}(${assertSafeSize(field.size)})`;
     }
     if (
       dbToTypes[currentDb][field.type].hasPrecision &&
       field.size &&
       field.size.trim() !== ""
     ) {
-      return `${field.type.toLowerCase()}${field.size ? `(${field.size})` : ""}`;
+      return `${assertSafeType(field.type.toLowerCase())}${field.size ? `(${assertSafeSize(field.size)})` : ""}`;
     }
     return field.type.toLowerCase();
   } else if (dbms === DB.MSSQL) {
-    let type = field.type;
+    let type = assertSafeType(field.type);
     switch (field.type) {
       case "ENUM":
         return baseType
@@ -152,7 +154,7 @@ export function getTypeString(
         break;
     }
     if (dbToTypes[currentDb][field.type].isSized) {
-      return `${type}(${field.size})`;
+      return `${assertSafeType(type)}(${assertSafeSize(field.size)})`;
     }
 
     return type;
@@ -184,15 +186,15 @@ export function getTypeString(
         oracleType = field.name + "_t";
         break;
       default:
-        oracleType = field.type;
+        oracleType = assertSafeType(field.type);
         break;
     }
     const typeInfo = dbToTypes[currentDb][oracleType];
     if (typeInfo.isSized || typeInfo.hasPrecision) {
       if (oracleType === "NUMBER") {
-        return `${oracleType}${field.size ? `(${field.size})` : "(38,0)"}`;
+        return `${assertSafeType(oracleType)}${field.size ? `(${assertSafeSize(field.size)})` : "(38,0)"}`;
       } else {
-        return `${oracleType}${field.size ? `(${field.size})` : ""}`;
+        return `${assertSafeType(oracleType)}${field.size ? `(${assertSafeSize(field.size)})` : ""}`;
       }
     }
 

@@ -9,6 +9,8 @@ import {
   quoterFor,
   safeConstraint,
   assertNoStatementBreak,
+  assertSafeSize,
+  assertSafeType,
 } from "./identifiers";
 
 export function toOracleSQL(diagram) {
@@ -24,9 +26,9 @@ export function toOracleSQL(diagram) {
             (field) =>
               `${field.comment === "" ? "" : `\t-- ${field.comment}\n`}\t${q(
                 field.name,
-              )} ${field.type}${
+              )} ${assertSafeType(field.type)}${
                 field.size !== undefined && field.size !== ""
-                  ? "(" + field.size + ")"
+                  ? "(" + assertSafeSize(field.size) + ")"
                   : ""
               }${field.notNull ? " NOT NULL" : ""}${
                 field.increment ? " GENERATED ALWAYS AS IDENTITY" : ""
@@ -73,7 +75,9 @@ export function toOracleSQL(diagram) {
         .map((c) => q(c))
         .join(", ")}) REFERENCES ${q(endName)} (${endColumns
         .map((c) => q(c))
-        .join(", ")})\nON UPDATE ${safeConstraint(r.updateConstraint)} ON DELETE ${safeConstraint(r.deleteConstraint)};`;
+        .join(
+          ", ",
+        )})\nON UPDATE ${safeConstraint(r.updateConstraint)} ON DELETE ${safeConstraint(r.deleteConstraint)};`;
     })
     .join("\n")}`;
 }

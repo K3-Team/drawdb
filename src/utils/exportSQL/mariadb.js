@@ -8,13 +8,15 @@ import {
   quoterFor,
   safeConstraint,
   assertNoStatementBreak,
+  assertSafeSize,
+  assertSafeType,
 } from "./identifiers";
 
 import { dbToTypes } from "../../data/datatypes";
 import { DB } from "../../data/constants";
 
 function parseType(field) {
-  let res = field.type;
+  let res = assertSafeType(field.type);
 
   if (field.type === "SET" || field.type === "ENUM") {
     res += `${field.values ? "(" + field.values.map((value) => "'" + escapeQuotes(value) + "'").join(", ") + ")" : ""}`;
@@ -24,7 +26,7 @@ function parseType(field) {
     dbToTypes[DB.MARIADB][field.type].isSized ||
     dbToTypes[DB.MARIADB][field.type].hasPrecision
   ) {
-    res += `${field.size && field.size !== "" ? "(" + field.size + ")" : ""}`;
+    res += `${field.size && field.size !== "" ? "(" + assertSafeSize(field.size) + ")" : ""}`;
   }
 
   return res;
@@ -87,7 +89,9 @@ export function toMariaDB(diagram) {
         .map((c) => q(c))
         .join(", ")}) REFERENCES ${q(endName)}(${endColumns
         .map((c) => q(c))
-        .join(", ")})\nON UPDATE ${safeConstraint(r.updateConstraint)} ON DELETE ${safeConstraint(r.deleteConstraint)};`;
+        .join(
+          ", ",
+        )})\nON UPDATE ${safeConstraint(r.updateConstraint)} ON DELETE ${safeConstraint(r.deleteConstraint)};`;
     })
     .join("\n")}`;
 }

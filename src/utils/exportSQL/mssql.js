@@ -8,6 +8,8 @@ import {
   quoterFor,
   safeConstraint,
   assertNoStatementBreak,
+  assertSafeSize,
+  assertSafeType,
 } from "./identifiers";
 
 import { dbToTypes } from "../../data/datatypes";
@@ -51,7 +53,7 @@ export function toMSSQL(diagram) {
           const typeMetaData = dbToTypes[DB.MSSQL][field.type.toUpperCase()];
           const isSized = typeMetaData.isSized || typeMetaData.hasPrecision;
 
-          return `\t${q(field.name)} ${field.type}${field.size && isSized ? `(${field.size})` : ""}${
+          return `\t${q(field.name)} ${assertSafeType(field.type)}${field.size && isSized ? `(${assertSafeSize(field.size)})` : ""}${
             field.notNull ? " NOT NULL" : ""
           }${field.increment ? " IDENTITY" : ""}${
             field.unique ? " UNIQUE" : ""
@@ -117,8 +119,7 @@ export function toMSSQL(diagram) {
         endTable,
       );
 
-      if (startColumns.some((c) => !c) || endColumns.some((c) => !c))
-        return "";
+      if (startColumns.some((c) => !c) || endColumns.some((c) => !c)) return "";
 
       return `\nALTER TABLE ${q(startTable.name)}
 ADD FOREIGN KEY(${startColumns.map((c) => q(c)).join(", ")})

@@ -4,7 +4,11 @@ import {
   parseDefault,
   uniqueConstraintClause,
 } from "./shared";
-import { quoterFor, assertNoStatementBreak } from "./identifiers";
+import {
+  quoterFor,
+  assertNoStatementBreak,
+  assertSafeType,
+} from "./identifiers";
 
 import { dbToTypes } from "../../data/datatypes";
 import { DB } from "../../data/constants";
@@ -22,7 +26,7 @@ export function toSqlite(diagram) {
           (field) =>
             `${exportFieldComment(field.comment)}\t${q(
               field.name,
-            )} ${field.type}${field.notNull ? " NOT NULL" : ""}${
+            )} ${assertSafeType(field.type)}${field.notNull ? " NOT NULL" : ""}${
               field.unique ? " UNIQUE" : ""
             }${field.default !== "" ? ` DEFAULT ${parseDefault(field, diagram.database)}` : ""}${
               field.check === "" ||
@@ -43,9 +47,7 @@ export function toSqlite(diagram) {
           (i) =>
             `\nCREATE ${i.unique ? "UNIQUE " : ""}INDEX IF NOT EXISTS ${q(
               i.name,
-            )}\nON ${q(table.name)} (${i.fields
-              .map((f) => q(f))
-              .join(", ")});`,
+            )}\nON ${q(table.name)} (${i.fields.map((f) => q(f)).join(", ")});`,
         )
         .join("\n")}`;
     })

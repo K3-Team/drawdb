@@ -311,3 +311,39 @@ describe("non-string enum values export without throwing", () => {
     expect(exportSQL(d)).toContain("ENUM('1', '2')");
   });
 });
+
+// field.size and field.type are interpolated raw -- they have to stay SQL --
+// so each carries a shape guard instead of quoting.
+describe("structural values that can graft a column are refused", () => {
+  const sized = {
+    [DB.MYSQL]: "VARCHAR",
+    [DB.MARIADB]: "VARCHAR",
+    [DB.POSTGRES]: "VARCHAR",
+    [DB.MSSQL]: "VARCHAR",
+    [DB.ORACLESQL]: "VARCHAR2",
+  };
+
+  for (const [db, type] of Object.entries(sized)) {
+    it(`${db} refuses a size that closes the type parentheses`, () => {
+      const d = diagram(db);
+      d.tables[0].fields[0].type = type;
+      d.tables[0].fields[0].size = "255), evil_col INT DEFAULT (1";
+      expect(() => exportSQL(d)).toThrow(/column size/);
+    });
+  }
+
+  for (const db of Object.keys(CLOSERS)) {
+    it(`${db} refuses a type that grafts another column`, () => {
+      const d = diagram(db);
+      d.tables[0].fields[0].type = "VARCHAR(255), evil_col INT";
+      expect(() => exportSQL(d)).toThrow(/type name|commas inside/);
+    });
+  }
+
+  it("still emits ordinary sizes and multi-word types", () => {
+    const d = diagram(DB.POSTGRES);
+    d.tables[0].fields[0].type = "DECIMAL";
+    d.tables[0].fields[0].size = "10,2";
+    expect(exportSQL(d)).toContain("DECIMAL(10,2)");
+  });
+});

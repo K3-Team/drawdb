@@ -128,3 +128,81 @@ export function assertSafeDefault(value) {
   }
   return s;
 }
+
+// --- Structural values -------------------------------------------------
+//
+// Sizes, type names and comment bodies cannot be quoted: they have to reach
+// the script as SQL. So each gets a shape instead -- an allowlist narrow
+// enough that no character able to end the current construct survives.
+
+function assertShape(value, re, rule, allowParens = false) {
+  const s = value == null ? "" : String(value);
+  if (!re.test(s) || (allowParens && hasUnbalancedParens(s))) {
+    reject(rule, s);
+  }
+  return s;
+}
+
+// A column size: "255", "10,2". Digits, comma and horizontal space only, so
+// "255), evil INT DEFAULT (1" cannot close the type's parentheses.
+const SIZE_RE = /^[0-9, \t]*$/;
+
+export function assertSafeSize(size) {
+  return assertShape(
+    size,
+    SIZE_RE,
+    "A column size may only contain digits, commas and spaces.",
+  );
+}
+
+// A type expression, e.g. "VARCHAR", "NUMBER(38,0)", "DOUBLE PRECISION",
+// "timestamp with time zone", or a user-defined composite type name.
+//
+// Deliberately a shape rather than a lookup in dbToTypes: getTypeString
+// returns derived strings ("VARCHAR(36)", "bit varying(8)"), diagrams may use
+// custom composite types that are absent from dbToTypes by design, and some
+// dialect tables lack entries the exporters still emit (Oracle has no
+// VARCHAR). A membership test would reject all three. The allowlist admits any
+// plausible type expression while excluding quotes, ';', '-' and '/', so
+// nothing here can terminate the statement or open a comment; parentheses are
+// permitted but must balance.
+const TYPE_RE = /^[A-Za-z0-9_ ,()]*$/;
+
+// A comma is legitimate only inside a precision, as in NUMBER(38,0). One at
+// the top level would end the column definition and start another, so
+// "INT, evil INT" must not pass even though every character is allowed.
+function hasTopLevelComma(s) {
+  let depth = 0;
+  for (const ch of s) {
+    if (ch === "(") depth++;
+    else if (ch === ")") depth--;
+    else if (ch === "," && depth === 0) return true;
+  }
+  return false;
+}
+
+export function assertSafeType(type) {
+  const s = assertShape(
+    type,
+    TYPE_RE,
+    "A type name may only contain letters, digits, underscores, spaces, " +
+      "commas and balanced parentheses.",
+    true,
+  );
+  if (hasTopLevelComma(s)) {
+    reject("A type name may only use commas inside parentheses.", s);
+  }
+  return s;
+}
+
+// Comments are inert free text, so they are neutralised rather than rejected:
+// a user may legitimately write "*/" in a description, and refusing to export
+// their diagram over it would be hostile. Rewriting is lossless enough and
+// keeps the comment from escaping its delimiters.
+export function sqlBlockComment(text) {
+  return String(text ?? "").replace(/\*\//g, "* /");
+}
+
+export function sqlLineComment(text) {
+  return String(text ?? "").replace(/[\r\n]+/g, " ");
+}
