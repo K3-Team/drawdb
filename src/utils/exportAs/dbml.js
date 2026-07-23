@@ -1,7 +1,8 @@
+import { escapeQuotes } from "../exportSQL/sqlSafety";
 import { Cardinality } from "../../data/constants";
 import { dbToTypes } from "../../data/datatypes";
 import i18n from "../../i18n/i18n";
-import { escapeQuotes } from "../exportSQL/shared";
+
 import { isFunction, isKeyword, getRelationshipFields } from "../utils";
 
 const IDENT_SAFE_RE = /^[A-Za-z_][A-Za-z0-9_]*$/;

@@ -9,7 +9,7 @@ import {
   assertNoStatementBreak,
   assertSafeType,
   sqlBlockComment,
-} from "./identifiers";
+} from "./sqlSafety";
 
 import { dbToTypes } from "../../data/datatypes";
 import { DB } from "../../data/constants";

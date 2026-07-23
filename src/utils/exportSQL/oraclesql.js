@@ -13,7 +13,7 @@ import {
   assertSafeType,
   sqlBlockComment,
   sqlLineComment,
-} from "./identifiers";
+} from "./sqlSafety";
 
 export function toOracleSQL(diagram) {
   const q = quoterFor(DB.ORACLESQL);

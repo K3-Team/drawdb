@@ -1,5 +1,4 @@
 import {
-  escapeQuotes,
   parseDefault,
   exportFieldComment,
   uniqueConstraintClause,
@@ -12,7 +11,8 @@ import {
   assertSafeType,
   sqlBlockComment,
   sqlLineComment,
-} from "../exportSQL/identifiers";
+  escapeQuotes,
+} from "../exportSQL/sqlSafety";
 import { DB } from "../../data/constants";
 import { databases } from "../../data/databases";
 import { dbToTypes } from "../../data/datatypes";

@@ -129,6 +129,15 @@ export function assertSafeDefault(value) {
   return s;
 }
 
+// --- String literals ---------------------------------------------------
+
+// Doubles the single quote that closes a SQL string literal. Coerces first:
+// an imported .ddb can hold non-strings (e.g. numeric ENUM values), and a
+// TypeError here surfaces as an opaque "export failed" toast.
+export function escapeQuotes(str) {
+  return String(str ?? "").replace(/[']/g, "'$&");
+}
+
 // --- Structural values -------------------------------------------------
 //
 // Sizes, type names and comment bodies cannot be quoted: they have to reach

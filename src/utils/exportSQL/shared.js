@@ -1,6 +1,6 @@
 import { isFunction, isKeyword, getRelationshipFields } from "../utils";
 
-import { safeConstraint, assertSafeDefault } from "./identifiers";
+import { safeConstraint, assertSafeDefault, escapeQuotes } from "./sqlSafety";
 import { DB } from "../../data/constants";
 import { dbToTypes } from "../../data/datatypes";
 
@@ -29,12 +29,6 @@ export function parseDefault(field, database = DB.GENERIC) {
   }
 
   return `'${escapeQuotes(field.default)}'`;
-}
-
-// Coerces first: an imported .ddb can hold non-strings (e.g. numeric ENUM
-// values), and a TypeError here surfaces as an opaque "export failed" toast.
-export function escapeQuotes(str) {
-  return String(str ?? "").replace(/[']/g, "'$&");
 }
 
 export function exportFieldComment(comment) {
@@ -74,17 +68,15 @@ export function getInlineFK(table, obj, q) {
   obj.references.forEach((r) => {
     if (r.startTableId === table.id) {
       const endTable = obj.tables.find((t) => t.id === r.endTableId);
-      const { startColumns, endColumns } = getFkColumnNames(
-        r,
-        table,
-        endTable,
-      );
+      const { startColumns, endColumns } = getFkColumnNames(r, table, endTable);
       fks.push(
         `\tFOREIGN KEY (${startColumns
           .map((c) => q(c))
           .join(", ")}) REFERENCES ${q(endTable?.name)}(${endColumns
           .map((c) => q(c))
-          .join(", ")})\n\tON UPDATE ${safeConstraint(r.updateConstraint)} ON DELETE ${safeConstraint(r.deleteConstraint)}`,
+          .join(
+            ", ",
+          )})\n\tON UPDATE ${safeConstraint(r.updateConstraint)} ON DELETE ${safeConstraint(r.deleteConstraint)}`,
       );
     }
   });

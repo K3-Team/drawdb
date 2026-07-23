@@ -1,5 +1,4 @@
 import {
-  escapeQuotes,
   parseDefault,
   uniqueConstraintClause,
   getFkColumnNames,
@@ -10,7 +9,8 @@ import {
   assertNoStatementBreak,
   assertSafeSize,
   assertSafeType,
-} from "./identifiers";
+  escapeQuotes,
+} from "./sqlSafety";
 
 import { dbToTypes } from "../../data/datatypes";
 import { DB } from "../../data/constants";

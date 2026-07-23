@@ -1,7 +1,6 @@
 import { DB } from "../../data/constants";
 import { dbToTypes, defaultTypes } from "../../data/datatypes";
 import {
-  escapeQuotes,
   getInlineFK,
   parseDefault,
   uniqueConstraintClause,
@@ -16,7 +15,8 @@ import {
   assertSafeType,
   sqlBlockComment,
   sqlLineComment,
-} from "./identifiers";
+  escapeQuotes,
+} from "./sqlSafety";
 
 export function getJsonType(f) {
   if (!Object.keys(defaultTypes).includes(f.type)) {

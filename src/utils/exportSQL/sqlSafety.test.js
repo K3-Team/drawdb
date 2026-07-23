@@ -9,7 +9,7 @@ import {
   assertSafeType,
   sqlBlockComment,
   sqlLineComment,
-} from "./identifiers";
+} from "./sqlSafety";
 import { DB, Constraint } from "../../data/constants";
 
 describe("quoteIdentifier", () => {
