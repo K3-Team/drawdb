@@ -33,6 +33,8 @@ export default function Share({ title, setModal }) {
   const extensions = useExtensions();
   const customContent = extensions?.["share-modal-content"];
 
+  const isShared = Boolean(gistId);
+
   const [embedSettings, setEmbedSettings] = useState({
     theme: null,
     hideHeader: null,
@@ -154,22 +156,34 @@ export default function Share({ title, setModal }) {
         </div>
       )}
       {!loading && error && (
-        <Banner
-          description={t("oops_smth_went_wrong")}
-          type="danger"
-          closeIcon={null}
-          fullMode={false}
-        />
+        <div className="space-y-3">
+          <Banner
+            description={t("oops_smth_went_wrong")}
+            type="danger"
+            closeIcon={null}
+            fullMode={false}
+          />
+          <div className="text-center">
+            <Button
+              onClick={() => {
+                setError(null);
+                generateLink();
+              }}
+            >
+              {t("try_again")}
+            </Button>
+          </div>
+        </div>
       )}
-      {!loading && !error && (!gistId || gistId === "") && (
+      {!loading && !error && !isShared && (
         <div className="text-center space-y-3">
           <div className="opacity-80">{t("share_upload_notice")}</div>
-          <Button type="primary" onClick={generateLink}>
+          <Button type="primary" theme="solid" onClick={generateLink}>
             {t("generate_share_link")}
           </Button>
         </div>
       )}
-      {!loading && !error && gistId && gistId !== "" && (
+      {!loading && !error && isShared && (
         <>
           <div className="flex gap-3">
             <Input value={url} size="large" readonly />

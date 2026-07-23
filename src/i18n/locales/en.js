@@ -253,6 +253,7 @@ const en = {
     share_upload_notice:
       "Generating a link uploads this diagram to the configured backend.",
     generate_share_link: "Generate share link",
+    try_again: "Try again",
     show_relationship_labels: "Show relationship labels",
     docs: "Docs",
     supported_types: "Supported file types:",
