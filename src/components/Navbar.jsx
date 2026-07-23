@@ -51,7 +51,7 @@ export default function Navbar() {
               className="px-2 py-2 hover:opacity-60 transition-all duration-300 rounded-full text-2xl"
               href={socials.github}
               target="_blank"
-              rel="noreferrer"
+              rel="noopener noreferrer"
             >
               <i className="opacity-70 bi bi-github" />
             </a>
@@ -60,7 +60,7 @@ export default function Navbar() {
               className="px-2 py-2 hover:opacity-60 transition-all duration-300 rounded-full text-2xl"
               href={socials.twitter}
               target="_blank"
-              rel="noreferrer"
+              rel="noopener noreferrer"
             >
               <i className="opacity-70 bi bi-twitter-x" />
             </a>
@@ -69,7 +69,7 @@ export default function Navbar() {
               className="px-2 py-2 hover:opacity-60 transition-all duration-300 rounded-full text-2xl"
               href={socials.discord}
               target="_blank"
-              rel="noreferrer"
+              rel="noopener noreferrer"
             >
               <i className="opacity-70 bi bi-discord" />
             </a>
@@ -78,7 +78,7 @@ export default function Navbar() {
               className="p-1 px-1.5 relative flex-inline items-center justify-center hover:opacity-60 bg-white transition-all duration-300 rounded-full text-xl"
               href={socials.sponsor}
               target="_blank"
-              rel="noreferrer"
+              rel="noopener noreferrer"
             >
                <i className="fa-solid fa-heart text-rose-300" />
                <i className="absolute top-1.5 left-1.5 fa-regular fa-heart text-rose-400" />

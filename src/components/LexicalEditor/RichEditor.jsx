@@ -18,6 +18,12 @@ function Placeholder({ text }) {
   return <div className="editor-placeholder">{text || ""}</div>;
 }
 
+const SAFE_URL_RE = /^(https?:\/\/|mailto:|\/|#)/i;
+
+function validateLinkUrl(url) {
+  return typeof url === "string" && SAFE_URL_RE.test(url.trim());
+}
+
 export default function RichEditor({ theme, placeholder }) {
   return (
     <div className="editor-container">
@@ -32,7 +38,7 @@ export default function RichEditor({ theme, placeholder }) {
         <AutoFocusPlugin />
         <CodeHighlightPlugin />
         <ListPlugin />
-        <LinkPlugin />
+        <LinkPlugin validateUrl={validateLinkUrl} />
         <AutoLinkPlugin />
         <ListMaxIndentLevelPlugin maxDepth={7} />
         <MarkdownShortcutPlugin transformers={TRANSFORMERS} />

@@ -3,6 +3,10 @@ import { Cardinality, Constraint, DB } from "../../data/constants";
 import { dbToTypes } from "../../data/datatypes";
 import { buildSQLFromAST } from "./shared";
 
+export function escapeRegExp(s) {
+  return String(s).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 const affinity = {
   [DB.POSTGRES]: new Proxy(
     { INT: "INTEGER" },
@@ -42,16 +46,18 @@ export function fromPostgres(ast, diagramDb = DB.GENERIC) {
             field.id = nanoid();
             field.name = d.column.column.expr.value;
 
-            let type = types.find((t) =>
-              new RegExp(`^(${t.name}|"${t.name}")$`).test(
+            let type = types.find((t) => {
+              const escapedName = escapeRegExp(t.name);
+              return new RegExp(`^(${escapedName}|"${escapedName}")$`).test(
                 d.definition.dataType,
-              ),
-            )?.name;
-            type ??= enums.find((t) =>
-              new RegExp(`^(${t.name}|"${t.name}")$`).test(
+              );
+            })?.name;
+            type ??= enums.find((t) => {
+              const escapedName = escapeRegExp(t.name);
+              return new RegExp(`^(${escapedName}|"${escapedName}")$`).test(
                 d.definition.dataType,
-              ),
-            )?.name;
+              );
+            })?.name;
 
             type ??=
               dbToTypes[diagramDb][d.definition.dataType.toUpperCase()].type;
