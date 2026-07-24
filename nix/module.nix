@@ -48,6 +48,33 @@ let
   ];
 
   conflictingEnvironment = lib.intersectLists managedEnvironment (lib.attrNames cfg.environment);
+
+  # Public path of the SQLite database. StateDirectory + DynamicUser puts the
+  # real file under /var/lib/private/drawdb and symlinks /var/lib/drawdb to it.
+  databaseFile = "/var/lib/drawdb/drawdb.sqlite";
+
+  backupScript = pkgs.writeShellScript "drawdb-backup" ''
+    set -euo pipefail
+    umask 077
+
+    db=${lib.escapeShellArg databaseFile}
+    dest=${lib.escapeShellArg cfg.backupPath}
+
+    if [ ! -f "$db" ]; then
+      echo "drawdb-backup: no database at $db yet; nothing to back up."
+      exit 0
+    fi
+
+    ts=$(${pkgs.coreutils}/bin/date +%Y%m%d-%H%M%S)
+    target="$dest/drawdb-$ts.sqlite"
+
+    # Online backup on a read-only handle: a consistent snapshot even while the
+    # server is writing (WAL journalling), and -readonly guarantees we never
+    # create or modify anything in the server's state directory. Snapshots are
+    # timestamped and accumulate; add external rotation if retention matters.
+    ${pkgs.sqlite}/bin/sqlite3 -readonly "$db" ".backup '$target'"
+    echo "drawdb-backup: wrote $target"
+  '';
 in
 {
   options.services.drawdb = {
@@ -143,9 +170,32 @@ in
         here would silently defeat it. Use the dedicated options instead.
       '';
     };
+
+    backup = lib.mkEnableOption "scheduled SQLite backups of the drawDB database";
+
+    startAt = lib.mkOption {
+      type = lib.types.str;
+      default = "daily";
+      example = "*-*-* 03:00:00";
+      description = ''
+        When to run backups, as a systemd `OnCalendar` expression (for example
+        "daily", "hourly", or "*-*-* 03:00:00"). Only has an effect when
+        {option}`services.drawdb.backup` is enabled.
+      '';
+    };
+
+    backupPath = lib.mkOption {
+      type = lib.types.str;
+      default = "/var/backup/drawdb";
+      description = ''
+        Directory that timestamped SQLite snapshots are written to. Created
+        automatically as root-owned, mode 0700; snapshots are written mode 0600.
+        Only has an effect when {option}`services.drawdb.backup` is enabled.
+      '';
+    };
   };
 
-  config = lib.mkIf cfg.enable {
+  config = lib.mkIf cfg.enable (lib.mkMerge [ {
     assertions = [
       {
         assertion = (cfg.tokens != null) != (cfg.tokensFile != null);
@@ -233,6 +283,42 @@ in
         MemoryDenyWriteExecute = false;
       };
     };
-  };
+  } (lib.mkIf cfg.backup {
+    systemd.tmpfiles.rules = [
+      "d ${cfg.backupPath} 0700 root root -"
+    ];
+
+    # startAt (below) creates the timer; make it catch up after downtime.
+    systemd.timers.drawdb-backup.timerConfig.Persistent = true;
+
+    systemd.services.drawdb-backup = {
+      description = "drawDB SQLite database backup";
+      after = [ "drawdb.service" ];
+      startAt = cfg.startAt;
+
+      serviceConfig = {
+        Type = "oneshot";
+        ExecStart = backupScript;
+        # The only writable location; created by tmpfiles above.
+        ReadWritePaths = [ cfg.backupPath ];
+
+        # It runs as root purely to read the DynamicUser-owned state directory,
+        # so CAP_DAC_READ_SEARCH is the single privilege it keeps. Otherwise the
+        # same hardening posture as the main service.
+        ProtectSystem = "strict";
+        ProtectHome = true;
+        PrivateTmp = true;
+        PrivateDevices = true;
+        NoNewPrivileges = true;
+        RestrictAddressFamilies = [ "AF_UNIX" ];
+        RestrictNamespaces = true;
+        RestrictRealtime = true;
+        LockPersonality = true;
+        CapabilityBoundingSet = [ "CAP_DAC_READ_SEARCH" ];
+        # sqlite3/sh/date don't JIT, so unlike the node service this is safe.
+        MemoryDenyWriteExecute = true;
+      };
+    };
+  }) ]);
 }
 

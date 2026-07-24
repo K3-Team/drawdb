@@ -151,9 +151,15 @@
                   port = 3000;
                   allowedOrigins = [ "http://localhost:3000" ];
                   tokensFile = "/etc/drawdb-tokens.json";
+                  backup = true;
+                  startAt = "daily";
+                  backupPath = "/var/backup/drawdb";
                 };
 
-                environment.systemPackages = [ pkgs.curl ];
+                environment.systemPackages = [
+                  pkgs.curl
+                  pkgs.sqlite
+                ];
               };
 
             testScript = ''
@@ -189,6 +195,18 @@
 
               # The database must land in the StateDirectory.
               machine.succeed("test -f /var/lib/private/drawdb/drawdb.sqlite")
+
+              # Backups: the timer must be scheduled, and triggering the oneshot
+              # must drop a valid, non-world-readable SQLite snapshot.
+              machine.succeed("systemctl is-active drawdb-backup.timer")
+              machine.succeed("systemctl start drawdb-backup.service")
+              backup = machine.succeed("ls /var/backup/drawdb/drawdb-*.sqlite").strip()
+              assert backup, "no backup file was produced"
+              # A valid snapshot with the app schema (proves the root+cap read of
+              # the DynamicUser-owned WAL database worked).
+              machine.succeed(f"sqlite3 {backup} 'SELECT count(*) FROM diagrams'")
+              mode = machine.succeed(f"stat -c %a {backup}").strip()
+              assert mode == "600", f"backup mode is {mode}, expected 600"
             '';
           };
         }
