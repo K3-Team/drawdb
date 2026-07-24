@@ -234,9 +234,15 @@ in
         type = lib.types.str;
         default = "127.0.0.1";
         description = ''
-          Address the MCP service binds to. Keep it on loopback behind a
-          reverse proxy; the endpoint is token-gated but not meant to face the
-          public internet directly.
+          Address the MCP service binds to. This is a listener-binding choice,
+          not an access-scope choice: the service is designed to be driven
+          remotely (an AI assistant elsewhere manipulating a diagram on this
+          host). Do that by publishing it through the **same reverse proxy** as
+          the collaboration server, over TLS, exactly like the collab HTTP/WS
+          endpoints — the token is the gate and the Bearer credential must
+          travel over HTTPS, which the proxy terminates. Keep this on loopback
+          so the proxy (not the raw Node process) faces the internet; only bind
+          a routable address if TLS is terminated elsewhere.
         '';
       };
 
@@ -244,6 +250,19 @@ in
         type = lib.types.port;
         default = 3001;
         description = "TCP port the MCP service listens on (path /mcp).";
+      };
+
+      allowedHosts = lib.mkOption {
+        type = lib.types.listOf lib.types.str;
+        default = [ ];
+        example = [ "drawdb.example.com" ];
+        description = ''
+          Host header values permitted on the MCP HTTP endpoint. When non-empty
+          the server enables DNS-rebinding protection and pins the expected
+          public hostname(s) — recommended defence-in-depth when the endpoint is
+          published through a reverse proxy. Empty disables the Host check
+          (token auth remains the primary gate regardless).
+        '';
       };
 
       allowedOrigins = lib.mkOption {
@@ -435,8 +454,11 @@ in
         # Origin presented on the downstream collab WebSocket so it passes the
         # collab Origin allowlist.
         COLLAB_ORIGIN = cfg.mcp.collabOrigin;
-        # Enables the MCP endpoint's own DNS-rebinding protection when set.
+        # Enable the MCP endpoint's own DNS-rebinding protection when set:
+        # ALLOWED_ORIGINS pins Origin headers, MCP_ALLOWED_HOSTS pins Host
+        # headers (recommended when published through a reverse proxy).
         ALLOWED_ORIGINS = lib.concatStringsSep "," cfg.mcp.allowedOrigins;
+        MCP_ALLOWED_HOSTS = lib.concatStringsSep "," cfg.mcp.allowedHosts;
       };
 
       serviceConfig = {

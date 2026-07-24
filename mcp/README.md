@@ -46,10 +46,32 @@ MCP_PORT=3001 \
 npm run start:mcp
 ```
 
+## Exposing it (local vs remote)
+
+The service is meant to be driven **remotely** — an AI assistant on your laptop
+manipulating a diagram on a server elsewhere. Do that the same way the collab
+server is served: publish it **through your reverse proxy over TLS**, and let
+the token be the gate. The default loopback bind is deliberate — the proxy (not
+the raw Node process) faces the internet and terminates TLS, and the Bearer
+token must travel over HTTPS.
+
+- **Local** (assistant and server on the same host): connect straight to
+  `http://127.0.0.1:3001/mcp`.
+- **Remote**: reverse-proxy `https://drawdb.example.com/mcp` → `127.0.0.1:3001`,
+  and connect to the `https://` URL. Set `mcp.allowedHosts`
+  (`MCP_ALLOWED_HOSTS`) to the public hostname for Host-header pinning
+  (DNS-rebinding defence-in-depth). Only bind `mcp.host` to a routable address
+  if you terminate TLS somewhere else — never expose the plaintext port with a
+  Bearer token on the open internet.
+
+The MCP token has the same power as any collab token (full diagram
+read/write/delete), so treat it exactly like one: keep it secret, use per-user
+tokens, and serve only over TLS.
+
 ## Connecting an assistant
 
-The MCP endpoint is `http://<host>:<port>/mcp`. Authenticate with one of the
-drawDB tokens.
+The MCP endpoint is `http(s)://<host>/mcp`. Authenticate with one of the drawDB
+tokens.
 
 Claude Code / Claude Desktop:
 
@@ -114,7 +136,8 @@ change and theirs both land.
 | `COLLAB_URL` | `http://127.0.0.1:3000` | The collab server to drive. |
 | `COLLAB_TOKENS` / `COLLAB_TOKENS_FILE` | — | Token map shared with the collab server. |
 | `COLLAB_ORIGIN` | — | `Origin` sent on the downstream collab WebSocket (must be in the collab `ALLOWED_ORIGINS`). |
-| `ALLOWED_ORIGINS` | — | When set, enables DNS-rebinding protection on the MCP endpoint. |
+| `ALLOWED_ORIGINS` | — | When set, pins allowed `Origin` headers (DNS-rebinding protection). |
+| `MCP_ALLOWED_HOSTS` | — | When set, pins allowed `Host` headers — recommended for a proxy-published endpoint. |
 | `MCP_REQUIRE_AUTH` | — | `1` (or `NODE_ENV=production`) refuses to start without tokens. |
 
 ## Notes
