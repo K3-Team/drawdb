@@ -232,7 +232,7 @@ export default function TypeField({ data, tid, fid }) {
                         ...prev,
                         {
                           action: Action.EDIT,
-                          element: ObjectType.TABLE,
+                          element: ObjectType.TYPE,
                           component: "field",
                           tid: tid,
                           fid: fid,
@@ -276,7 +276,7 @@ export default function TypeField({ data, tid, fid }) {
                         ...prev,
                         {
                           action: Action.EDIT,
-                          element: ObjectType.TABLE,
+                          element: ObjectType.TYPE,
                           component: "field",
                           tid: tid,
                           fid: fid,
@@ -317,6 +317,7 @@ export default function TypeField({ data, tid, fid }) {
                   updateType(tid, {
                     fields: types[tid].fields.filter((_, k) => k !== fid),
                   });
+                  setRedoStack([]);
                 }}
               >
                 {t("delete")}

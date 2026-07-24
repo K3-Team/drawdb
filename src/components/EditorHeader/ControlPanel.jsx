@@ -129,6 +129,7 @@ export default function ControlPanel({
   };
   const [importFrom, setImportFrom] = useState(IMPORT_FROM.JSON);
   const { saveState, setSaveState } = useSaveState();
+  const [exiting, setExiting] = useState(false);
   const { layout, setLayout } = useLayout();
   const { settings, setSettings } = useSettings();
   const {
@@ -724,6 +725,9 @@ export default function ControlPanel({
       case ObjectType.AREA:
         deleteArea(selectedElement.id);
         break;
+      case ObjectType.RELATIONSHIP:
+        deleteRelationship(selectedElement.id);
+        break;
       default:
         break;
     }
@@ -916,6 +920,12 @@ export default function ControlPanel({
     if (!fullscreen)
       setLayout((p) => ({ ...p, header: true, sidebar: true, toolbar: true }));
   }, [fullscreen, setLayout]);
+
+  // Exit waits for the pending save to finish (save() only flips to SAVING;
+  // the persist + SAVED transition happens in Workspace's autosave effect).
+  useEffect(() => {
+    if (exiting && saveState === State.SAVED) navigate("/");
+  }, [exiting, saveState, navigate]);
 
   const menu = {
     file: {
@@ -1361,8 +1371,8 @@ export default function ControlPanel({
       },
       exit: {
         function: () => {
+          setExiting(true);
           save();
-          if (saveState === State.SAVED) navigate("/");
         },
       },
     },
