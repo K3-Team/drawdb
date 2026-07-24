@@ -8,8 +8,10 @@
     "dev:client": "vite",
     "dev:server": "node --watch server/index.js",
     "start": "node server/index.js",
+    "start:mcp": "node mcp/index.js",
     "check:server": "node --check server/index.js && node --check server/database.js && node --check server/tableLocks.js && node --check server/websocket.js",
     "test:server": "node --test server/*.test.js",
+    "test:mcp": "node --test mcp/*.test.js mcp/mutators/*.test.js",
     "test:import": "node --test src/utils/importSQL/normalize.test.js",
     "build": "vite build",
     "lint": "eslint . --ext js,jsx --report-unused-disable-directives --max-warnings 0",
@@ -24,6 +26,7 @@
     "@douyinfe/semi-ui": "^2.77.1",
     "@fortawesome/fontawesome-free": "^7.3.1",
     "@lexical/react": "^0.12.5",
+    "@modelcontextprotocol/sdk": "^1.29.0",
     "@monaco-editor/react": "^4.7.0",
     "better-sqlite3": "^12.11.1",
     "bootstrap-icons": "^1.13.1",
@@ -51,7 +54,8 @@
     "react-router-dom": "^6.30.4",
     "usehooks-ts": "^3.1.0",
     "uuid": "^14.0.1",
-    "ws": "^8.21.1"
+    "ws": "^8.21.1",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.0.14",
