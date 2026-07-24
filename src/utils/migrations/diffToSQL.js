@@ -389,6 +389,11 @@ export const generateMigrationSQL = (
               }
 
               case "default": {
+                // SQLite ALTER TABLE can't SET DEFAULT / ADD CONSTRAINT / alter
+                // a column in place, so these property changes are skipped for
+                // it (same as type/notNull/size above). ponytail: a faithful
+                // SQLite migration would rebuild the table; out of scope here.
+                if (database === DB.SQLITE) break;
                 const defVal = (v) =>
                   parseDefault(
                     { default: v, type: columnType || "VARCHAR" },
@@ -415,6 +420,7 @@ export const generateMigrationSQL = (
               }
 
               case "check": {
+                if (database === DB.SQLITE) break; // SQLite: no ADD CONSTRAINT
                 const cn = `${name}_${columnName}_check`;
                 if (change.to && change.to !== "") {
                   up.push(
@@ -514,6 +520,7 @@ export const generateMigrationSQL = (
               }
 
               case "unique": {
+                if (database === DB.SQLITE) break; // SQLite: no ADD CONSTRAINT
                 const cu = `${name}_${columnName}_unique`;
                 if (change.to) {
                   up.push(
@@ -530,6 +537,7 @@ export const generateMigrationSQL = (
               }
 
               case "primary": {
+                if (database === DB.SQLITE) break; // SQLite: no ADD CONSTRAINT
                 const cp = `${name}_pkey`;
                 if (change.to) {
                   up.push(
