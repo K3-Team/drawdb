@@ -30,7 +30,8 @@ export function buildSQLFromAST(ast, db = DB.MYSQL) {
         "(" +
         ast.args.value
           .map((v) => {
-            if (v.type === "column_ref") return "`" + v.column + "`";
+            if (v.type === "column_ref")
+              return quoteColumn(v.column?.expr?.value ?? v.column, db);
             if (
               v.type === "single_quote_string" ||
               v.type === "double_quote_string"
@@ -43,9 +44,18 @@ export function buildSQLFromAST(ast, db = DB.MYSQL) {
     }
     return expr;
   } else if (ast.type === "column_ref") {
-    return quoteColumn(ast.column, db);
+    // Postgres exposes the identifier as { expr: { value } }; MySQL/etc give a
+    // plain string.
+    return quoteColumn(ast.column?.expr?.value ?? ast.column, db);
   } else if (ast.type === "expr_list") {
-    return ast.value.map((v) => v.value).join(" AND ");
+    // An IN-list: render as (a, b, c), not a AND b AND c.
+    return (
+      "(" +
+      ast.value
+        .map((v) => (typeof v.value === "string" ? "'" + v.value + "'" : v.value))
+        .join(", ") +
+      ")"
+    );
   } else {
     return typeof ast.value === "string" ? "'" + ast.value + "'" : ast.value;
   }
