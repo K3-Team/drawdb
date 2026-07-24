@@ -380,6 +380,7 @@ describe("dbToTypes[POSTGRES] checkDefault", () => {
   it("TIMESTAMP accepts a full timestamp and current_timestamp", () => {
     expect(ok("TIMESTAMP", "2020-01-01 00:00:00")).toBe(true);
     expect(ok("TIMESTAMP", "current_timestamp")).toBe(true);
+    expect(ok("TIMESTAMP", "2020-01-01")).toBe(true); // date-only is valid
   });
 
   it("BIT accepts a bitstring", () => {
@@ -391,11 +392,14 @@ describe("dbToTypes[POSTGRES] checkDefault", () => {
     expect(ok("JSON", '{"a":1}')).toBe(true);
   });
 
-  // FLAG (data/datatypes.js, shared/forbidden to edit): the TIMESTAMP validator
-  // has an OR-branch that accepts anything whose leading YYYY is 1970..2038, so
-  // a garbage value like "1999-13-45 99:99:99" passes. Documented, not fixed.
-  it.fails("TIMESTAMP should reject an impossible date (catalog looseness)", () => {
+  // The TIMESTAMP validator now range-checks month/day/time (month 1-12, day
+  // 1-31, hour 0-23, ...), so an impossible date is rejected instead of being
+  // waved through by a leading-year heuristic. (Per-month day limits like
+  // Feb 30 are intentionally not validated -- that's calendar math a lint
+  // doesn't need.)
+  it("TIMESTAMP rejects an impossible date", () => {
     expect(ok("TIMESTAMP", "1999-13-45 99:99:99")).toBe(false);
+    expect(ok("TIMESTAMP", "not a date")).toBe(false);
   });
 });
 
