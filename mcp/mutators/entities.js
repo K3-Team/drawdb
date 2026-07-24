@@ -44,7 +44,7 @@ function relationshipsOf(doc) {
 
 // ---- fields ---------------------------------------------------------------
 
-function normalizeField(input, { database } = {}) {
+function normalizeField(input) {
   if (!input || typeof input.name !== "string" || !input.name)
     throw new Error("Field requires a name");
   if (typeof input.type !== "string" || !input.type)
@@ -79,7 +79,7 @@ export function addTable(doc, { name, x, y, fields, color, comment } = {}) {
     y: Number.isFinite(y) ? y : 0,
     fields:
       Array.isArray(fields) && fields.length > 0
-        ? fields.map((f) => normalizeField(f, { database: doc.database }))
+        ? fields.map((f) => normalizeField(f))
         : [
             normalizeField(
               {
@@ -89,7 +89,6 @@ export function addTable(doc, { name, x, y, fields, color, comment } = {}) {
                 notNull: true,
                 increment: true,
               },
-              { database: doc.database },
             ),
           ],
     comment: comment ?? "",
@@ -112,7 +111,7 @@ export function updateTable(doc, id, updates = {}) {
     if (!Array.isArray(updates.fields))
       throw new Error("updateTable: fields must be an array");
     table.fields = updates.fields.map((f) =>
-      normalizeField(f, { database: doc.database }),
+      normalizeField(f),
     );
   }
   return { id: table.id };
@@ -146,7 +145,7 @@ export function getTable(doc, { tableId, tableName } = {}) {
 
 export function addField(doc, tableId, field) {
   const table = findTable(doc, tableId);
-  const normalized = normalizeField(field, { database: doc.database });
+  const normalized = normalizeField(field);
   table.fields.push(normalized);
   return { id: normalized.id };
 }

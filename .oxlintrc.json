@@ -1,0 +1,13 @@
+{
+  "$schema": "https://raw.githubusercontent.com/oxc-project/oxc/main/npm/oxlint/configuration_schema.json",
+  "plugins": ["react", "react-perf"],
+  "categories": {
+    "correctness": "error"
+  },
+  "rules": {
+    "no-unused-expressions": "off",
+    "no-unused-vars": ["error", { "caughtErrors": "none", "argsIgnorePattern": "^_" }],
+    "react-hooks/exhaustive-deps": "warn"
+  },
+  "ignorePatterns": ["dist", "coverage", "mcp/vendor", ".eslintrc.cjs"]
+}

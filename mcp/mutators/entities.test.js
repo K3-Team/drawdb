@@ -3,7 +3,6 @@ import test from "node:test";
 import {
   emptyDocument,
   addTable,
-  updateTable,
   deleteTable,
   getTable,
   addField,
