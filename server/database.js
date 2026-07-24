@@ -6,6 +6,11 @@ import Database from "better-sqlite3";
 
 const DEFAULT_DATABASE_PATH = path.resolve("data/drawdb.sqlite");
 
+// How many recent operations to keep in the idempotency log per diagram. Only
+// near-immediate retries are ever replayed, and the optimistic version check
+// already rejects stale ones, so a window is safe and keeps the table bounded.
+const APPLIED_OPERATIONS_KEEP = 1000;
+
 export function openDatabase(databasePath = process.env.DATABASE_PATH) {
   const configuredPath = databasePath || DEFAULT_DATABASE_PATH;
   const resolvedPath =
@@ -75,6 +80,10 @@ export function createDiagramStore(db) {
         db.prepare(
           "INSERT INTO applied_operations (diagram_id, operation_id, version, created_at) VALUES (?, ?, ?, ?)",
         ).run(id, operationId, version, now);
+        // Bound the idempotency log per diagram (see APPLIED_OPERATIONS_KEEP).
+        db.prepare(
+          "DELETE FROM applied_operations WHERE diagram_id = ? AND version < ?",
+        ).run(id, version - APPLIED_OPERATIONS_KEEP);
       }
       return { status: "updated", diagram: parse(selectOne.get(id)) };
     },
