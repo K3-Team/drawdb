@@ -17,7 +17,8 @@
     "build:mcp-vendor": "node scripts/build-mcp-vendor.mjs",
     "lint": "eslint . --ext js,jsx --report-unused-disable-directives --max-warnings 0",
     "test": "vitest run",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "coverage": "vitest run --coverage"
   },
   "dependencies": {
     "@dbml/core": "^3.13.9",
