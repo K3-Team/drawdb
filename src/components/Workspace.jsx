@@ -24,7 +24,8 @@ import {
   useCollab,
 } from "../hooks";
 import FloatingControls from "./FloatingControls";
-import { Button, Input, Modal, Tag, Toast } from "@douyinfe/semi-ui";
+import { Button, Input, Modal, Tabs, TabPane, Tag, Toast } from "@douyinfe/semi-ui";
+import Open from "./EditorHeader/Modal/Open";
 import { IconAlertTriangle } from "@douyinfe/semi-icons";
 import { useTranslation } from "react-i18next";
 import { databases } from "../data/databases";
@@ -52,6 +53,11 @@ export default function WorkSpace({ forcedDiagramId } = {}) {
   const [showSelectDbModal, setShowSelectDbModal] = useState(false);
   const [showRestoreModal, setShowRestoreModal] = useState(false);
   const [selectedDb, setSelectedDb] = useState("");
+  // The /editor start chooser: "create" (pick a database) or "open" (an
+  // existing cloud/local diagram). Nothing is created until the user picks
+  // Create, so opening an existing diagram no longer leaves an orphan behind.
+  const [startMode, setStartMode] = useState("create");
+  const [selectedOpenId, setSelectedOpenId] = useState(null);
   const [showTokenModal, setShowTokenModal] = useState(false);
   const [tokenInput, setTokenInput] = useState("");
 
@@ -525,13 +531,30 @@ export default function WorkSpace({ forcedDiagramId } = {}) {
       </div>
       <Modal
         centered
-        size="medium"
-        closable={false}
-        hasCancel={false}
-        title={t("pick_db")}
-        okText={t("confirm")}
+        size={startMode === "open" ? "large" : "medium"}
+        title={t("start_diagram_title", {
+          defaultValue: "Create or open a diagram",
+        })}
+        okText={
+          startMode === "open"
+            ? t("open", { defaultValue: "Open" })
+            : t("confirm")
+        }
+        cancelText={t("cancel", { defaultValue: "Cancel" })}
         visible={showSelectDbModal}
+        onCancel={() => {
+          // Dismiss without creating anything — back to the landing page.
+          setShowSelectDbModal(false);
+          navigate("/");
+        }}
         onOk={() => {
+          if (startMode === "open") {
+            if (!selectedOpenId) return;
+            // Just navigate — no new diagram is created.
+            setShowSelectDbModal(false);
+            navigate(`/editor/diagrams/${selectedOpenId}`, { replace: true });
+            return;
+          }
           if (selectedDb === "") return;
           setShowSelectDbModal(false);
           // Create the blank diagram on the server immediately, then redirect
@@ -551,41 +574,66 @@ export default function WorkSpace({ forcedDiagramId } = {}) {
             },
           });
         }}
-        okButtonProps={{ disabled: selectedDb === "" }}
+        okButtonProps={{
+          disabled: startMode === "open" ? !selectedOpenId : selectedDb === "",
+        }}
       >
-        <div className="grid grid-cols-3 gap-4 place-content-center">
-          {Object.values(databases).map((x) => (
-            <div
-              key={x.name}
-              onClick={() => setSelectedDb(x.label)}
-              className={`space-y-3 p-3 rounded-md border-2 select-none ${
-                settings.mode === "dark"
-                  ? "bg-zinc-700 hover:bg-zinc-600"
-                  : "bg-zinc-100 hover:bg-zinc-200"
-              } ${selectedDb === x.label ? "border-zinc-400" : "border-transparent"}`}
-            >
-              <div className="flex items-center justify-between">
-                <div className="font-semibold">{x.name}</div>
-                {x.beta && (
-                  <Tag size="small" color="light-blue">
-                    Beta
-                  </Tag>
-                )}
-              </div>
-              {x.image && (
-                <img
-                  src={x.image}
-                  className="h-8"
-                  style={{
-                    filter:
-                      "opacity(0.4) drop-shadow(0 0 0 white) drop-shadow(0 0 0 white)",
-                  }}
-                />
-              )}
-              <div className="text-xs">{x.description}</div>
+        <Tabs
+          activeKey={startMode}
+          onChange={setStartMode}
+          type="line"
+          lazyRender
+        >
+          <TabPane
+            tab={t("create_new_diagram", { defaultValue: "Create new" })}
+            itemKey="create"
+          >
+            <div className="grid grid-cols-3 gap-4 place-content-center pt-2">
+              {Object.values(databases).map((x) => (
+                <div
+                  key={x.name}
+                  onClick={() => setSelectedDb(x.label)}
+                  className={`space-y-3 p-3 rounded-md border-2 select-none ${
+                    settings.mode === "dark"
+                      ? "bg-zinc-700 hover:bg-zinc-600"
+                      : "bg-zinc-100 hover:bg-zinc-200"
+                  } ${selectedDb === x.label ? "border-zinc-400" : "border-transparent"}`}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="font-semibold">{x.name}</div>
+                    {x.beta && (
+                      <Tag size="small" color="light-blue">
+                        Beta
+                      </Tag>
+                    )}
+                  </div>
+                  {x.image && (
+                    <img
+                      src={x.image}
+                      className="h-8"
+                      style={{
+                        filter:
+                          "opacity(0.4) drop-shadow(0 0 0 white) drop-shadow(0 0 0 white)",
+                      }}
+                    />
+                  )}
+                  <div className="text-xs">{x.description}</div>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
+          </TabPane>
+          <TabPane
+            tab={t("open_existing_diagram", { defaultValue: "Open existing" })}
+            itemKey="open"
+          >
+            <div className="pt-2">
+              <Open
+                selectedDiagramId={selectedOpenId}
+                setSelectedDiagramId={setSelectedOpenId}
+              />
+            </div>
+          </TabPane>
+        </Tabs>
       </Modal>
       <Modal
         visible={showRestoreModal}

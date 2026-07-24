@@ -151,7 +151,32 @@ test("the built SPA boots in a real browser without uncaught errors", async (t) 
   );
   assert.ok(mounted, "React mounted content into #root");
 
-  // Give any deferred module errors a beat to surface, then assert none.
+  // 5. /editor must present the dismissable Create/Open start chooser rather
+  // than force-creating a diagram (regression guard for the orphan-diagram bug).
+  await client.send("Page.navigate", { url: `${appUrl}editor` });
+  const chooser = await waitFor(
+    async () => {
+      const { result } = await client.send("Runtime.evaluate", {
+        expression: `(() => {
+          const text = document.body.innerText;
+          return JSON.stringify({
+            createTab: text.includes('Create new'),
+            openTab: text.includes('Open existing'),
+            dismissable: text.includes('Cancel'),
+          });
+        })()`,
+        returnByValue: true,
+      });
+      const state = JSON.parse(result.value);
+      return state.createTab && state.openTab && state.dismissable ? state : null;
+    },
+    { label: "/editor start chooser (Create/Open, dismissable)", timeout: 15000 },
+  );
+  assert.ok(chooser.openTab, "start chooser offers 'Open existing'");
+  assert.ok(chooser.dismissable, "start chooser is dismissable (has Cancel)");
+
+  // Give any deferred module errors a beat to surface, then assert none across
+  // both the landing and the editor.
   await new Promise((r) => setTimeout(r, 500));
   const exceptions = client.events
     .filter((e) => e.method === "Runtime.exceptionThrown")
