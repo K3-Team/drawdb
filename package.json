@@ -20,7 +20,8 @@
     "test": "vitest run",
     "preview": "vite preview",
     "coverage": "vitest run --coverage",
-    "test:e2e": "node --test e2e/*.test.mjs"
+    "test:e2e": "node --test e2e/*.test.mjs",
+    "test:live": "DRAWDB_LIVE_DB=1 vitest run --no-file-parallelism src/utils/exportSQL/postgres.test.js src/utils/exportSQL/mysql.test.js src/utils/exportSQL/mariadb.test.js src/utils/exportSQL/sqlite.test.js src/utils/exportSQL/generic.test.js"
   },
   "dependencies": {
     "@dbml/core": "^3.13.9",
