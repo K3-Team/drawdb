@@ -60,7 +60,7 @@ export function fromPostgres(ast, diagramDb = DB.GENERIC) {
             })?.name;
 
             type ??=
-              dbToTypes[diagramDb][d.definition.dataType.toUpperCase()].type;
+              dbToTypes[diagramDb][d.definition.dataType.toUpperCase()]?.type;
             type ??= affinity[diagramDb][d.definition.dataType.toUpperCase()];
 
             field.type = type;
@@ -238,7 +238,7 @@ export function fromPostgres(ast, diagramDb = DB.GENERIC) {
               }
             });
 
-            const startTableId = tables.length;
+            const startTableId = table.id;
 
             const endTable = tables.find((t) => t.name === endTableName);
             if (!endTable) return;

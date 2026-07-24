@@ -88,11 +88,11 @@ export function fromDBML(src) {
       relationship.startFieldId = fieldPairs[0].startFieldId;
       relationship.id = nanoid();
 
-      relationship.updateConstraint = ref.onDelete
-        ? ref.onDelete[0].toUpperCase() + ref.onDelete.substring(1)
-        : Constraint.NONE;
-      relationship.deleteConstraint = ref.onUpdate
+      relationship.updateConstraint = ref.onUpdate
         ? ref.onUpdate[0].toUpperCase() + ref.onUpdate.substring(1)
+        : Constraint.NONE;
+      relationship.deleteConstraint = ref.onDelete
+        ? ref.onDelete[0].toUpperCase() + ref.onDelete.substring(1)
         : Constraint.NONE;
 
       const startRelation = ref.endpoints[0].relation;
