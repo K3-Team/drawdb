@@ -105,6 +105,20 @@
             touch $out
           '';
 
+          mcp-tests = pkgs.runCommand "drawdb-mcp-tests" {
+            nativeBuildInputs = [ pkgs.nodejs_22 ];
+          } ''
+            cp -r ${self.packages.${system}.drawdb}/lib/drawdb/node_modules ./node_modules
+            cp -r ${./server} ./server
+            cp -r ${./src} ./src
+            cp -r ${./mcp} ./mcp
+            cp ${./package.json} ./package.json
+            chmod -R u+w .
+            shopt -s failglob
+            node --test mcp/*.test.js mcp/mutators/*.test.js
+            touch $out
+          '';
+
           import-tests = pkgs.runCommand "drawdb-import-tests" {
             nativeBuildInputs = [ pkgs.nodejs_22 ];
           } ''
@@ -155,6 +169,10 @@
                   startAt = "daily";
                   backupPath = "/var/backup/drawdb";
                   backupsLimit = 2;
+                  mcp = {
+                    enable = true;
+                    port = 3001;
+                  };
                 };
 
                 environment.systemPackages = [
@@ -218,6 +236,41 @@
                   machine.succeed("ls -1 /var/backup/drawdb/drawdb-*.sqlite | wc -l").strip()
               )
               assert kept == 2, f"backupsLimit=2 should keep 2 snapshots, found {kept}"
+
+              # MCP service: a separate hardened unit, token-gated, loopback only.
+              machine.wait_for_unit("drawdb-mcp.service")
+              machine.wait_for_open_port(3001)
+              machine.succeed("ss -tln | grep -q '127.0.0.1:3001'")
+              machine.fail("ss -tln | grep -q '0.0.0.0:3001'")
+
+              # A minimal MCP initialize request. Unauthenticated must be 401.
+              init = (
+                  '{"jsonrpc":"2.0","id":1,"method":"initialize","params":'
+                  '{"protocolVersion":"2025-06-18","capabilities":{},'
+                  '"clientInfo":{"name":"vm","version":"1"}}}'
+              )
+              accept = "application/json, text/event-stream"
+              code = machine.succeed(
+                  "curl -s -o /dev/null -w '%{http_code}' -X POST "
+                  "-H 'Content-Type: application/json' "
+                  f"-H 'Accept: {accept}' "
+                  f"-d '{init}' http://127.0.0.1:3001/mcp"
+              ).strip()
+              assert code == "401", f"expected 401 without a token, got {code}"
+
+              # Authenticated initialize must succeed and mint a session id
+              # (proves fail-closed auth accepts the shared token and the
+              # service is live).
+              headers = machine.succeed(
+                  "curl -s -D - -o /dev/null -X POST "
+                  "-H 'Authorization: Bearer vm-test-token' "
+                  "-H 'Content-Type: application/json' "
+                  f"-H 'Accept: {accept}' "
+                  f"-d '{init}' http://127.0.0.1:3001/mcp"
+              )
+              assert (
+                  "mcp-session-id" in headers.lower()
+              ), f"no session id in MCP initialize response: {headers}"
             '';
           };
         }

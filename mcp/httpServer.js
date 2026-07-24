@@ -101,6 +101,9 @@ export function createMcpHttpServer({
         // New session: bind the authenticated identity/token for its lifetime.
         const transport = new StreamableHTTPServerTransport({
           sessionIdGenerator: () => randomUUID(),
+          // Our tools are unary request/response; plain JSON replies (rather
+          // than an SSE stream) keep the endpoint usable by simple HTTP clients.
+          enableJsonResponse: true,
           enableDnsRebindingProtection: dnsProtection,
           allowedHosts,
           allowedOrigins,

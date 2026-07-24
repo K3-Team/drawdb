@@ -51,12 +51,18 @@ buildNpmPackage {
     npm prune --omit=dev
 
     mkdir -p $out/lib/drawdb/src $out/bin
-    cp -r dist server node_modules package.json $out/lib/drawdb/
-    # The server imports the shared protocol from src/collaboration.
+    cp -r dist server mcp node_modules package.json $out/lib/drawdb/
+    # The server (and the MCP service, via server/) import the shared protocol
+    # from src/collaboration.
     cp -r src/collaboration $out/lib/drawdb/src/
 
     makeWrapper ${nodejs}/bin/node $out/bin/drawdb \
       --add-flags $out/lib/drawdb/server/index.js
+
+    # The MCP service is a separate process that talks to the collab server
+    # over HTTP + WebSocket as an authenticated user.
+    makeWrapper ${nodejs}/bin/node $out/bin/drawdb-mcp \
+      --add-flags $out/lib/drawdb/mcp/index.js
 
     runHook postInstall
   '';

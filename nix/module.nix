@@ -219,6 +219,57 @@ in
         enabled.
       '';
     };
+
+    mcp = {
+      enable = lib.mkEnableOption ''
+        the drawDB MCP (Model Context Protocol) service. A separate process
+        that lets AI assistants create and edit diagrams; it talks to the
+        collaboration server over HTTP and WebSocket as an authenticated user,
+        so its edits persist and broadcast to browsers like any collaborator.
+        It shares the same token map — an AI connects with one of the tokens
+        from {option}`services.drawdb.tokens`/{option}`tokensFile`
+      '';
+
+      host = lib.mkOption {
+        type = lib.types.str;
+        default = "127.0.0.1";
+        description = ''
+          Address the MCP service binds to. Keep it on loopback behind a
+          reverse proxy; the endpoint is token-gated but not meant to face the
+          public internet directly.
+        '';
+      };
+
+      port = lib.mkOption {
+        type = lib.types.port;
+        default = 3001;
+        description = "TCP port the MCP service listens on (path /mcp).";
+      };
+
+      allowedOrigins = lib.mkOption {
+        type = lib.types.listOf lib.types.str;
+        default = [ ];
+        example = [ "https://drawdb.example.com" ];
+        description = ''
+          Origins permitted on the MCP HTTP endpoint. When non-empty, the
+          server enables DNS-rebinding protection (MCP clients are not
+          browsers and usually send no Origin, so token auth remains the
+          primary gate). Empty disables the Origin check.
+        '';
+      };
+
+      collabOrigin = lib.mkOption {
+        type = lib.types.str;
+        default = if cfg.allowedOrigins == [ ] then "" else lib.head cfg.allowedOrigins;
+        defaultText = lib.literalExpression "the first of services.drawdb.allowedOrigins";
+        description = ''
+          Origin header the MCP service sends on its downstream collaboration
+          WebSocket so it passes the collab server's Origin allowlist
+          ({option}`services.drawdb.allowedOrigins`). Defaults to the first of
+          that allowlist; must be one of its entries in production.
+        '';
+      };
+    };
   };
 
   config = lib.mkIf cfg.enable (lib.mkMerge [ {
@@ -252,6 +303,22 @@ in
           services.drawdb.environment must not set ${lib.concatStringsSep ", " conflictingEnvironment}.
           These are managed by the module and several are load-bearing for its
           fail-closed behaviour. Use the dedicated options instead.
+        '';
+      }
+      {
+        assertion = !cfg.mcp.enable || cfg.mcp.port >= 1024;
+        message = ''
+          services.drawdb.mcp.port is ${toString cfg.mcp.port}, but the service
+          runs with CapabilityBoundingSet = "" and cannot bind a privileged
+          port (below 1024). Use a high port and reverse-proxy to it.
+        '';
+      }
+      {
+        assertion = !cfg.mcp.enable || cfg.mcp.port != cfg.port;
+        message = ''
+          services.drawdb.mcp.port (${toString cfg.mcp.port}) must differ from
+          services.drawdb.port (${toString cfg.port}); they are two separate
+          listeners.
         '';
       }
     ];
@@ -343,6 +410,59 @@ in
         CapabilityBoundingSet = [ "CAP_DAC_READ_SEARCH" ];
         # sqlite3/sh/date don't JIT, so unlike the node service this is safe.
         MemoryDenyWriteExecute = true;
+      };
+    };
+  }) (lib.mkIf cfg.mcp.enable {
+    systemd.services.drawdb-mcp = {
+      description = "drawDB MCP service for AI-assisted diagram editing";
+      after = [
+        "network.target"
+        "drawdb.service"
+      ];
+      wants = [ "drawdb.service" ];
+      wantedBy = [ "multi-user.target" ];
+
+      environment = {
+        NODE_ENV = "production";
+        # Fail closed: refuse to start without a token map (same posture as the
+        # collab service). The AI must authenticate with a real token.
+        MCP_REQUIRE_AUTH = "1";
+        MCP_HOST = cfg.mcp.host;
+        MCP_PORT = toString cfg.mcp.port;
+        # The collab server this service drives, on loopback.
+        COLLAB_URL = "http://${cfg.host}:${toString cfg.port}";
+        COLLAB_TOKENS_FILE = "%d/tokens";
+        # Origin presented on the downstream collab WebSocket so it passes the
+        # collab Origin allowlist.
+        COLLAB_ORIGIN = cfg.mcp.collabOrigin;
+        # Enables the MCP endpoint's own DNS-rebinding protection when set.
+        ALLOWED_ORIGINS = lib.concatStringsSep "," cfg.mcp.allowedOrigins;
+      };
+
+      serviceConfig = {
+        ExecStart = "${cfg.package}/bin/drawdb-mcp";
+        # Same token file as the collab service, read as root then dropped.
+        LoadCredential = [ "tokens:${resolvedTokens}" ];
+        DynamicUser = true;
+        Restart = "on-failure";
+        RestartSec = 5;
+
+        # Same hardening posture as the collab service (node needs W^X off).
+        ProtectSystem = "strict";
+        ProtectHome = true;
+        PrivateTmp = true;
+        PrivateDevices = true;
+        NoNewPrivileges = true;
+        RestrictAddressFamilies = [
+          "AF_INET"
+          "AF_INET6"
+          "AF_UNIX"
+        ];
+        RestrictNamespaces = true;
+        RestrictRealtime = true;
+        LockPersonality = true;
+        CapabilityBoundingSet = "";
+        MemoryDenyWriteExecute = false;
       };
     };
   }) ]);
