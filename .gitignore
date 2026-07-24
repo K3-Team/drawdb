@@ -29,3 +29,6 @@ result
 .direnv
 docs/
 drawdb-tokens.yaml
+
+# Generated: bundled SQL exporters for the MCP service (npm run build:mcp-vendor)
+mcp/vendor/

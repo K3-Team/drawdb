@@ -114,6 +114,10 @@
             cp -r ${./mcp} ./mcp
             cp ${./package.json} ./package.json
             chmod -R u+w .
+            # mcp/vendor/exportSQL.js is a build artifact (bundled client SQL
+            # exporters); it is not in the source tree, so take it from the
+            # built package.
+            cp -r ${self.packages.${system}.drawdb}/lib/drawdb/mcp/vendor ./mcp/vendor
             shopt -s failglob
             node --test mcp/*.test.js mcp/mutators/*.test.js
             touch $out
@@ -259,18 +263,47 @@
               assert code == "401", f"expected 401 without a token, got {code}"
 
               # Authenticated initialize must succeed and mint a session id
-              # (proves fail-closed auth accepts the shared token and the
-              # service is live).
-              headers = machine.succeed(
+              # (proves fail-closed auth accepts the shared token).
+              sid = machine.succeed(
                   "curl -s -D - -o /dev/null -X POST "
                   "-H 'Authorization: Bearer vm-test-token' "
                   "-H 'Content-Type: application/json' "
                   f"-H 'Accept: {accept}' "
-                  f"-d '{init}' http://127.0.0.1:3001/mcp"
+                  f"-d '{init}' http://127.0.0.1:3001/mcp "
+                  "| tr -d '\\r' | awk 'tolower($1)==\"mcp-session-id:\"{print $2}'"
+              ).strip()
+              assert sid, "no mcp-session-id returned from initialize"
+
+              # Drive a real tool call end to end: create_diagram must reach the
+              # collab server, proving the packaged MCP unit talks to the
+              # packaged collab unit over the systemd-wired COLLAB_URL.
+              def mcp(body):
+                  return machine.succeed(
+                      "curl -s -X POST "
+                      "-H 'Authorization: Bearer vm-test-token' "
+                      f"-H 'mcp-session-id: {sid}' "
+                      "-H 'MCP-Protocol-Version: 2025-06-18' "
+                      "-H 'Content-Type: application/json' "
+                      f"-H 'Accept: {accept}' "
+                      f"-d '{body}' http://127.0.0.1:3001/mcp"
+                  )
+
+              mcp('{"jsonrpc":"2.0","method":"notifications/initialized"}')
+              result = mcp(
+                  '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":'
+                  '{"name":"create_diagram","arguments":'
+                  '{"name":"mcp-vm","database":"postgresql"}}}'
               )
               assert (
-                  "mcp-session-id" in headers.lower()
-              ), f"no session id in MCP initialize response: {headers}"
+                  '"iserror":true' not in result.lower().replace(" ", "")
+              ), f"create_diagram tool call failed: {result}"
+
+              # The diagram the AI created must now exist on the collab server.
+              listing = machine.succeed(
+                  "curl -s -H 'Authorization: Bearer vm-test-token' "
+                  "http://127.0.0.1:3000/api/diagrams"
+              )
+              assert "mcp-vm" in listing, f"MCP-created diagram not on collab: {listing}"
             '';
           };
         }

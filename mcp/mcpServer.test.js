@@ -132,6 +132,15 @@ test("tools create/open/add_table and broadcast to a collaborator", async (t) =>
   const diagram = parse(await client.callTool({ name: "get_diagram", arguments: {} }));
   const users = diagram.tables.find((tbl) => tbl.name === "users");
   assert.ok(users.fields.some((f) => f.name === "email"));
+
+  // export_dbml and export_sql return text (not JSON) for the open diagram.
+  const dbml = (await client.callTool({ name: "export_dbml", arguments: {} }))
+    .content[0].text;
+  assert.match(dbml, /Table users \{/);
+  const sql = (await client.callTool({ name: "export_sql", arguments: {} }))
+    .content[0].text;
+  assert.match(sql, /CREATE TABLE/i);
+  assert.match(sql, /"users"/); // postgresql identifiers are double-quoted
 });
 
 test("a tool error is reported without an open diagram", async (t) => {

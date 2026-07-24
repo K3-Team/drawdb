@@ -13,7 +13,8 @@
     "test:server": "node --test server/*.test.js",
     "test:mcp": "node --test mcp/*.test.js mcp/mutators/*.test.js",
     "test:import": "node --test src/utils/importSQL/normalize.test.js",
-    "build": "vite build",
+    "build": "vite build && npm run build:mcp-vendor",
+    "build:mcp-vendor": "node scripts/build-mcp-vendor.mjs",
     "lint": "eslint . --ext js,jsx --report-unused-disable-directives --max-warnings 0",
     "test": "vitest run",
     "preview": "vite preview"

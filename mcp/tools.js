@@ -341,4 +341,10 @@ export function registerTools(server, session) {
     {},
     () => M.exportDbml(readDoc()),
   );
+  tool(
+    "export_sql",
+    "Export the open diagram as SQL DDL for its database engine (not available for the 'generic' database).",
+    {},
+    () => M.exportSql(readDoc()),
+  );
 }
