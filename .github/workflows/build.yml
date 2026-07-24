@@ -15,19 +15,17 @@ jobs:
 
     runs-on: ubuntu-latest
 
-    strategy:
-      matrix:
-        node-version: [20.x, 22.x]
-
     steps:
     - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-    - name: Use Node.js ${{ matrix.node-version }}
+    # Runtime is Node 22 everywhere (the Nix package pins nodejs_22); no need to
+    # matrix over older majors.
+    - name: Use Node.js 22.x
       uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
       with:
-        node-version: ${{ matrix.node-version }}
+        node-version: 22.x
         cache: 'npm'
     - run: npm ci
-    - name: Run eslint
+    - name: Run oxlint
       run: npm run lint
     - name: Run tests
       run: npm test
@@ -49,7 +47,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-    # TODO: pin to a commit SHA (matches this repo's action-pinning policy).
+    # TODO: pin the two actions below to commit SHAs (repo action-pinning policy).
     - uses: DeterminateSystems/nix-installer-action@main
+    # Nix store cache backed by GitHub Actions cache (no external service). Turns
+    # the expensive rebuilds — better-sqlite3 compile, the vite package build,
+    # the VM-test closure — into cache hits across runs. Keyed on the lockfiles
+    # so it invalidates only when dependencies change.
+    - uses: nix-community/cache-nix-action@v6
+      with:
+        primary-key: nix-${{ runner.os }}-${{ hashFiles('flake.lock', 'package-lock.json') }}
+        restore-prefixes-first-match: nix-${{ runner.os }}-
+        gc-max-store-size-linux: 5G
     - name: Run flake checks
       run: nix flake check -L
