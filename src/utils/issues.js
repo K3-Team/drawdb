@@ -3,17 +3,17 @@ import i18n from "../i18n/i18n";
 import { isFunction } from "./utils";
 
 function checkDefault(field, database) {
-  if (field.default === "") return true;
-  if (isFunction(field.default)) return true;
-  if (
-    !field.notNull &&
-    typeof field.default === "string" &&
-    field.default.toLowerCase() === "null"
-  )
-    return true;
+  // The schema permits boolean/number defaults, but the per-type checkDefault
+  // bodies (and isFunction) assume a string. Coerce once so a non-string
+  // default can't crash getIssues.
+  const def =
+    typeof field.default === "string" ? field.default : String(field.default ?? "");
+  if (def === "") return true;
+  if (isFunction(def)) return true;
+  if (!field.notNull && def.toLowerCase() === "null") return true;
   if (!dbToTypes[database][field.type].checkDefault) return true;
 
-  return dbToTypes[database][field.type].checkDefault(field);
+  return dbToTypes[database][field.type].checkDefault({ ...field, default: def });
 }
 
 export function getIssues(diagram) {
