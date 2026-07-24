@@ -154,6 +154,7 @@
                   backup = true;
                   startAt = "daily";
                   backupPath = "/var/backup/drawdb";
+                  backupsLimit = 2;
                 };
 
                 environment.systemPackages = [
@@ -207,6 +208,16 @@
               machine.succeed(f"sqlite3 {backup} 'SELECT count(*) FROM diagrams'")
               mode = machine.succeed(f"stat -c %a {backup}").strip()
               assert mode == "600", f"backup mode is {mode}, expected 600"
+
+              # backupsLimit must cap retained snapshots. Two more runs (1s apart
+              # for distinct timestamps) make three total; only the newest two
+              # must survive.
+              machine.succeed("sleep 1 && systemctl start drawdb-backup.service")
+              machine.succeed("sleep 1 && systemctl start drawdb-backup.service")
+              kept = int(
+                  machine.succeed("ls -1 /var/backup/drawdb/drawdb-*.sqlite | wc -l").strip()
+              )
+              assert kept == 2, f"backupsLimit=2 should keep 2 snapshots, found {kept}"
             '';
           };
         }

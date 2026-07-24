@@ -55,25 +55,38 @@ let
 
   backupScript = pkgs.writeShellScript "drawdb-backup" ''
     set -euo pipefail
+    export PATH=${lib.makeBinPath [
+      pkgs.coreutils
+      pkgs.sqlite
+    ]}
     umask 077
 
     db=${lib.escapeShellArg databaseFile}
     dest=${lib.escapeShellArg cfg.backupPath}
+    limit=${toString cfg.backupsLimit}
 
     if [ ! -f "$db" ]; then
       echo "drawdb-backup: no database at $db yet; nothing to back up."
       exit 0
     fi
 
-    ts=$(${pkgs.coreutils}/bin/date +%Y%m%d-%H%M%S)
-    target="$dest/drawdb-$ts.sqlite"
+    target="$dest/drawdb-$(date +%Y%m%d-%H%M%S).sqlite"
 
     # Online backup on a read-only handle: a consistent snapshot even while the
     # server is writing (WAL journalling), and -readonly guarantees we never
-    # create or modify anything in the server's state directory. Snapshots are
-    # timestamped and accumulate; add external rotation if retention matters.
-    ${pkgs.sqlite}/bin/sqlite3 -readonly "$db" ".backup '$target'"
+    # create or modify anything in the server's state directory.
+    sqlite3 -readonly "$db" ".backup '$target'"
     echo "drawdb-backup: wrote $target"
+
+    # Retention: keep only the newest $limit snapshots (0 = keep all). The
+    # timestamped names sort chronologically, so "head -n -$limit" lists the
+    # older ones to prune. head reads all of its input, so pipefail stays happy.
+    if [ "$limit" -gt 0 ]; then
+      ls -1 "$dest"/drawdb-*.sqlite | head -n "-$limit" | while IFS= read -r old; do
+        rm -f -- "$old"
+        echo "drawdb-backup: pruned $old"
+      done
+    fi
   '';
 in
 {
@@ -191,6 +204,19 @@ in
         Directory that timestamped SQLite snapshots are written to. Created
         automatically as root-owned, mode 0700; snapshots are written mode 0600.
         Only has an effect when {option}`services.drawdb.backup` is enabled.
+      '';
+    };
+
+    backupsLimit = lib.mkOption {
+      type = lib.types.ints.unsigned;
+      default = 0;
+      example = 5;
+      description = ''
+        Maximum number of snapshots to keep in
+        {option}`services.drawdb.backupPath`. After each backup the oldest
+        snapshots beyond this count are deleted. 0 (the default) keeps all of
+        them. Only has an effect when {option}`services.drawdb.backup` is
+        enabled.
       '';
     };
   };
