@@ -560,7 +560,7 @@ export function jsonToSQLServer(obj) {
       return `${
         type.comment === "" ? "" : `/**\n${sqlBlockComment(type.comment)}\n*/\n`
       }CREATE TYPE ${q(type.name)} FROM ${
-        type.fields.length < 0
+        type.fields.length === 0
           ? ""
           : `${getTypeString(type.fields[0], obj.database, DB.MSSQL, true)}`
       };\nGO\n`;
