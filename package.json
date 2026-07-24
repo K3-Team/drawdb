@@ -18,7 +18,8 @@
     "lint": "eslint . --ext js,jsx --report-unused-disable-directives --max-warnings 0",
     "test": "vitest run",
     "preview": "vite preview",
-    "coverage": "vitest run --coverage"
+    "coverage": "vitest run --coverage",
+    "test:e2e": "node --test e2e/*.test.mjs"
   },
   "dependencies": {
     "@dbml/core": "^3.13.9",
