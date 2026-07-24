@@ -35,5 +35,21 @@ jobs:
       run: npm run test:server
     - name: Run import tests
       run: npm run test:import
+    # The MCP SQL export tests import the bundled exporters; build them first.
+    - name: Build MCP SQL vendor bundle
+      run: npm run build:mcp-vendor
+    - name: Run MCP tests
+      run: npm run test:mcp
     - name: Run vite build
       run: npm run build
+
+  # Nix flake checks: module eval, server/mcp/import/vitest suites, and the
+  # NixOS VM test (needs KVM, available on ubuntu-latest runners).
+  nix-checks:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+    # TODO: pin to a commit SHA (matches this repo's action-pinning policy).
+    - uses: DeterminateSystems/nix-installer-action@main
+    - name: Run flake checks
+      run: nix flake check -L
