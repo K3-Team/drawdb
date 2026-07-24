@@ -46,22 +46,30 @@ export function fromPostgres(ast, diagramDb = DB.GENERIC) {
             field.id = nanoid();
             field.name = d.column.column.expr.value;
 
+            // The parser folds the bracket array form's `[]` into dataType
+            // (e.g. `TEXT[]` -> dataType "TEXT[]", no array node), unlike the
+            // `TEXT ARRAY` / `VARCHAR(9)[]` forms which set d.definition.array.
+            // Strip it so the type resolves, and flag the column as an array.
+            const bracketArray = d.definition.dataType.endsWith("[]");
+            const dataType = bracketArray
+              ? d.definition.dataType.slice(0, -2)
+              : d.definition.dataType;
+
             let type = types.find((t) => {
               const escapedName = escapeRegExp(t.name);
               return new RegExp(`^(${escapedName}|"${escapedName}")$`).test(
-                d.definition.dataType,
+                dataType,
               );
             })?.name;
             type ??= enums.find((t) => {
               const escapedName = escapeRegExp(t.name);
               return new RegExp(`^(${escapedName}|"${escapedName}")$`).test(
-                d.definition.dataType,
+                dataType,
               );
             })?.name;
 
-            type ??=
-              dbToTypes[diagramDb][d.definition.dataType.toUpperCase()]?.type;
-            type ??= affinity[diagramDb][d.definition.dataType.toUpperCase()];
+            type ??= dbToTypes[diagramDb][dataType.toUpperCase()]?.type;
+            type ??= affinity[diagramDb][dataType.toUpperCase()];
 
             field.type = type;
 
@@ -70,7 +78,7 @@ export function fromPostgres(ast, diagramDb = DB.GENERIC) {
             // exactly that form for isArray fields, so restoring the flag here
             // closes the diagram -> SQL -> diagram round trip.
             field.isArray = false;
-            if (d.definition.array) field.isArray = true;
+            if (d.definition.array || bracketArray) field.isArray = true;
 
             if (d.definition.expr && d.definition.expr.type === "expr_list") {
               field.values = d.definition.expr.value.map((v) => v.value);

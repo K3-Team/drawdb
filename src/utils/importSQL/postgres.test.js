@@ -236,11 +236,9 @@ describe("fromPostgres import feature-matrix", () => {
     expect(field(table(d, "t"), "s").check).toContain("'a'");
   });
 
-  // FLAG: the bracket array form folds "[]" into dataType ("TEXT[]"), which no
-  // catalog entry matches, so the type falls through affinity to BLOB and the
-  // array flag is lost. The exporter emits the ARRAY keyword form (which does
-  // round-trip), so this is import-only for externally authored DDL.
-  it.skip("bracket array form TEXT[] (unsupported by importer)", () => {
+  // The bracket array form (`TEXT[]`) folds "[]" into dataType; the importer
+  // now strips it and sets isArray, matching the ARRAY keyword form.
+  it("bracket array form TEXT[] resolves the type and sets isArray", () => {
     const d = imp(`CREATE TABLE t (tags TEXT[]);`);
     const tags = field(table(d, "t"), "tags");
     expect(tags.type).toBe("TEXT");

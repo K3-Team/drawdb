@@ -1072,8 +1072,6 @@ const postgresTypesBase = {
     type: "TIMESTAMP",
     color: dateColor,
     checkDefault: (field) => {
-      const content = field.default.split(" ");
-      const date = content[0].split("-");
       const specialValues = [
         "epoch",
         "infinity",
@@ -1084,12 +1082,14 @@ const postgresTypesBase = {
         "yesterday",
         "current_timestamp",
       ];
-      return (
-        /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(field.default) ||
-        (Number.parseInt(date[0]) >= 1970 &&
-          Number.parseInt(date[0]) <= 2038) ||
-        specialValues.includes(field.default.toLowerCase())
-      );
+      if (specialValues.includes(field.default.toLowerCase())) return true;
+      // YYYY-MM-DD, optionally followed by a time (space or T separator),
+      // fractional seconds, and a timezone offset. Month/day/hour/minute/second
+      // ranges are validated so an impossible date (e.g. 1999-13-45) is rejected.
+      const date = /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/;
+      const datetime =
+        /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])[ T]([01]\d|2[0-3]):[0-5]\d(:[0-5]\d(\.\d+)?)?([+-]([01]\d|2[0-3])(:?[0-5]\d)?|Z)?$/;
+      return date.test(field.default) || datetime.test(field.default);
     },
     hasCheck: false,
     isSized: false,
