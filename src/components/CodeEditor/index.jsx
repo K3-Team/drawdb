@@ -31,7 +31,9 @@ export default function CodeEditor({
   const handleEditorMount = (editor, monaco) => {
     setUpDBML(monaco, database);
     setTimeout(() => {
-      editor.getAction("editor.action.formatDocument").run();
+      // getAction returns null for languages with no formatting provider
+      // (e.g. dbml/sql/markdown); skip rather than crash.
+      editor.getAction("editor.action.formatDocument")?.run();
     }, 300);
   };
 
