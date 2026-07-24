@@ -157,7 +157,7 @@ const defaultTypesBase = {
     hasCheck: true,
     isSized: true,
     hasPrecision: false,
-    defaultSize: 225,
+    defaultSize: 255,
     hasQuotes: true,
   },
   TEXT: {
@@ -1671,7 +1671,7 @@ const mssqlTypesBase = {
     hasPrecision: true,
   },
   SMALLMONEY: {
-    type: "MONEY",
+    type: "SMALLMONEY",
     color: decimalColor,
     checkDefault: (field) => {
       return doubleRegex.test(field.default);
@@ -1844,7 +1844,7 @@ const mssqlTypesBase = {
     hasQuotes: true,
   },
   NCHAR: {
-    type: "CHAR",
+    type: "NCHAR",
     color: stringColor,
     checkDefault: (field) => {
       if (strHasQuotes(field.default)) {
@@ -1859,7 +1859,7 @@ const mssqlTypesBase = {
     hasQuotes: true,
   },
   NVARCHAR: {
-    type: "VARCHAR",
+    type: "NVARCHAR",
     color: stringColor,
     checkDefault: (field) => {
       if (strHasQuotes(field.default)) {
@@ -1874,7 +1874,7 @@ const mssqlTypesBase = {
     hasQuotes: true,
   },
   NTEXT: {
-    type: "TEXT",
+    type: "NTEXT",
     color: stringColor,
     checkDefault: (field) => true,
     hasCheck: false,
@@ -2036,7 +2036,7 @@ const oraclesqlTypesBase = {
     hasQuotes: true,
   },
   NVARCHAR2: {
-    type: "VARCHAR2",
+    type: "NVARCHAR2",
     color: stringColor,
     checkDefault: (field) => {
       if (strHasQuotes(field.default)) {
