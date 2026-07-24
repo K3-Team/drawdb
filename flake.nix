@@ -142,7 +142,8 @@
             cp ${./package.json} ./package.json
             cp ${./vitest.config.js} ./vitest.config.js
             chmod -R u+w .
-            node_modules/.bin/vitest run
+            # --coverage enforces the ratchet thresholds in vitest.config.js.
+            node_modules/.bin/vitest run --coverage
             touch $out
           '';
 
