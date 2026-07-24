@@ -5,14 +5,10 @@ import { normalizeSQLForParser } from "./normalize";
 import { DB } from "../../data/constants";
 
 // MariaDB CREATE import feature-matrix. SQL is parsed exactly like the app
-// (normalizeSQLForParser -> node-sql-parser mariadb grammar -> fromMariaDB).
-//
-// The DDL here is plain `CREATE TABLE` (the shape of a real MariaDB dump). The
-// bundled parser's mariadb grammar does NOT accept `CREATE OR REPLACE TABLE`
-// (what toMariaDB emits) nor `ALTER TABLE ... ADD FOREIGN KEY`, so FKs are
-// exercised via the inline form inside CREATE TABLE, which both the parser and
-// fromMariaDB support. See the design doc (gaps G1/G2) and mariadb.test.js on
-// the export side.
+// (normalizeSQLForParser -> node-sql-parser -> fromMariaDB). MariaDB is parsed
+// with the mysql grammar (see normalize.parserDatabase): the mariadb grammar
+// can't parse `CREATE OR REPLACE TABLE` or FK-adding ALTERs, but the mysql
+// grammar handles both, so drawDB's own MariaDB exports now round-trip.
 
 const imp = (sql) => parseAndImport(sql, DB.MARIADB);
 const byName = (tables, name) => tables.find((t) => t.name === name);
@@ -146,9 +142,10 @@ describe("fromMariaDB import feature-matrix", () => {
     expect(d.relationships[0].fields).toHaveLength(2);
   });
 
-  // normalize.js quirk: node-sql-parser treats a leading `status <type>` as the
-  // reserved MariaDB STATUS keyword; normalizeSQLForParser backtick-quotes it.
-  describe("status keyword normalize quirk", () => {
+  // A column literally named `status`. The mariadb grammar chokes on it (which
+  // is why normalize still defensively backtick-quotes it), but the mysql
+  // grammar we now use handles it either way, so the column imports cleanly.
+  describe("status column name", () => {
     const ML = `CREATE TABLE t (
   status VARCHAR(20) NOT NULL,
   name TEXT
@@ -160,11 +157,10 @@ describe("fromMariaDB import feature-matrix", () => {
       expect(field(t, "status").notNull).toBe(true);
     });
 
-    it("would fail to parse WITHOUT the normalize step (proves it is needed)", () => {
+    it("mariadb grammar rejects unquoted `status`, but normalize quotes it", () => {
       expect(() =>
         new Parser().astify(ML, { database: DB.MARIADB }),
       ).toThrow();
-      // ...and normalize rewrites the offending identifier.
       expect(normalizeSQLForParser(ML, DB.MARIADB)).toContain("`status`");
     });
   });

@@ -18,7 +18,10 @@ import {
 } from "../../../hooks";
 import { isRtl } from "../../../i18n/utils/rtl";
 import { importSQL } from "../../../utils/importSQL";
-import { normalizeSQLForParser } from "../../../utils/importSQL/normalize";
+import {
+  normalizeSQLForParser,
+  parserDatabase,
+} from "../../../utils/importSQL/normalize";
 import {
   getModalTitle,
   getModalWidth,
@@ -119,7 +122,7 @@ export default function Modal({
         );
 
         ast = parser.astify(normalizedSource, {
-          database: targetDatabase,
+          database: parserDatabase(targetDatabase),
         });
       }
     } catch (error) {

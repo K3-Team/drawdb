@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { exportSQL } from "./index";
-import { parseAndImport, roundTrip, LIVE_DB, runLiveDDL } from "../sqlTestKit";
+import { roundTrip, LIVE_DB, runLiveDDL } from "../sqlTestKit";
 import { generateMigrationSQL } from "../migrations/diffToSQL";
 import { dbToTypes } from "../../data/datatypes";
 import { DB } from "../../data/constants";
@@ -149,25 +149,12 @@ describe("toMariaDB export feature-assertions", () => {
 // ---- (b) round-trip ------------------------------------------------------
 
 describe("toMariaDB round-trip", () => {
-  // FLAGGED (design doc G1): node-sql-parser's mariadb grammar cannot parse
-  // `CREATE OR REPLACE TABLE`, so the kit's roundTrip() throws for EVERY
-  // MariaDB diagram. `CREATE OR REPLACE TABLE` is the intended, live-valid
-  // export (the live block below proves the engine accepts it), and the parser
-  // is a third-party/shared dependency. If the grammar ever gains support,
-  // this test starts failing -- convert it to a real round-trip then.
-  it("roundTrip() currently throws because the parser rejects CREATE OR REPLACE TABLE", () => {
-    expect(() => roundTrip(singleTable())).toThrow();
-  });
-
-  // Positive round-trip: strip only the documented `OR REPLACE` token so the
-  // real exporter output flows through the real importer. Proves the
-  // column/PK/ENUM/UNIQUE/COMMENT export is faithful and re-importable.
-  it("re-imports faithfully once the OR REPLACE token is removed", () => {
-    const sql = exportSQL(singleTable());
-    const imported = parseAndImport(
-      sql.replace(/CREATE OR REPLACE TABLE/g, "CREATE TABLE"),
-      DB.MARIADB,
-    );
+  // MariaDB is now parsed with the mysql grammar (see normalize.parserDatabase)
+  // and normalize strips `OR REPLACE`, so the real exporter output --
+  // `CREATE OR REPLACE TABLE` + `ADD CONSTRAINT ... FOREIGN KEY` -- flows
+  // straight through the kit's roundTrip().
+  it("re-imports a table faithfully", () => {
+    const { imported } = roundTrip(singleTable());
     const t = imported.tables[0];
     expect(t.name).toBe("users");
     expect(t.comment).toBe("people");
@@ -184,6 +171,11 @@ describe("toMariaDB round-trip", () => {
       { name: "uq_email", fields: ["email"], id: 0 },
     ]);
     expect(t.indices.map((i) => i.name)).toEqual(["idx_email"]);
+  });
+
+  it("re-imports foreign keys (ADD CONSTRAINT ... FOREIGN KEY now parses)", () => {
+    const { imported } = roundTrip(richDiagram());
+    expect(imported.relationships.length).toBeGreaterThanOrEqual(1);
   });
 });
 

@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { Parser } from "node-sql-parser";
 import { importSQL } from "./index";
-import { normalizeSQLForParser } from "./normalize";
+import { normalizeSQLForParser, parserDatabase } from "./normalize";
 import { DB } from "../../data/constants";
 
 // Oracle (fromOracleSQL) is intentionally not covered here: it is a beta
@@ -14,7 +14,7 @@ import { DB } from "../../data/constants";
 
 function parse(sql, database) {
   const normalized = normalizeSQLForParser(sql, database);
-  return new Parser().astify(normalized, { database });
+  return new Parser().astify(normalized, { database: parserDatabase(database) });
 }
 
 const byName = (tables, name) =>

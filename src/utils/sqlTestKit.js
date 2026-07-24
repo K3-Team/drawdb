@@ -16,11 +16,13 @@ import { join } from "node:path";
 import { Parser } from "node-sql-parser";
 import { exportSQL } from "./exportSQL";
 import { importSQL } from "./importSQL";
-import { normalizeSQLForParser } from "./importSQL/normalize";
+import { normalizeSQLForParser, parserDatabase } from "./importSQL/normalize";
 
 // Parse SQL exactly like Modal.jsx does, then import it into a diagram.
 export function parseAndImport(sql, db) {
-  const ast = new Parser().astify(normalizeSQLForParser(sql, db), { database: db });
+  const ast = new Parser().astify(normalizeSQLForParser(sql, db), {
+    database: parserDatabase(db),
+  });
   return importSQL(ast, db, db);
 }
 
