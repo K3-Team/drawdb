@@ -1,0 +1,31 @@
+name: E2E
+
+# The browser boot smoke is kept off the per-PR path (a real browser is the
+# flakiest, heaviest thing in CI and this is only a "does the app boot" check).
+# It runs nightly and on demand instead — enough to catch a regression within a
+# day without gating every merge. Run it locally any time with:
+#   npm run build && CHROMIUM=<chrome-or-chromium> npm run test:e2e
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 4 * * *'
+
+permissions:
+  contents: read
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+    - name: Use Node.js
+      uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+      with:
+        node-version: 22.x
+        cache: 'npm'
+    - run: npm ci
+    - name: Build the app
+      run: npm run build
+    # The runner ships Google Chrome preinstalled; no browser download needed.
+    - name: Browser smoke E2E
+      run: CHROMIUM=google-chrome npm run test:e2e

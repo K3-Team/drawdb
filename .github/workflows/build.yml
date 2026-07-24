@@ -42,9 +42,6 @@ jobs:
       run: npm run test:mcp
     - name: Run vite build
       run: npm run build
-    # Real-browser boot smoke, using the runner's preinstalled Chrome.
-    - name: Run browser smoke E2E
-      run: CHROMIUM=google-chrome npm run test:e2e
 
   # Nix flake checks: module eval, server/mcp/import/vitest suites, and the
   # NixOS VM test (needs KVM, available on ubuntu-latest runners).
