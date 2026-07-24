@@ -11,8 +11,6 @@ export function safeEntryName(name) {
   return cleaned === "" ? "diagram" : cleaned;
 }
 
-const zip = new JSZip();
-
 const formatDiagram = (diagram) => {
   const formattedDiagram = { ...diagram };
   formattedDiagram.relationships = diagram.references;
@@ -25,6 +23,7 @@ const formatDiagram = (diagram) => {
 };
 
 export async function exportSavedData() {
+  const zip = new JSZip();
   const diagramsFolder = zip.folder("diagrams");
 
   const summaries = await diagramApi.list();
@@ -57,7 +56,7 @@ export async function exportSavedData() {
     const date = new Date();
     saveAs(
       content,
-      `${date.getFullYear()}_${date.getMonth()}_${date.getDay()}_export.zip`,
+      `${date.getFullYear()}_${date.getMonth() + 1}_${date.getDate()}_export.zip`,
     );
   });
 }
