@@ -55,8 +55,16 @@ export function fromMySQL(ast, diagramDb = DB.GENERIC) {
             if (d.unique) field.unique = true;
             field.increment = false;
             if (d.auto_increment) field.increment = true;
+            // node-sql-parser reports d.definition.suffix (e.g. ["UNSIGNED"],
+            // ["UNSIGNED","ZEROFILL"]) for the numeric UNSIGNED attribute.
+            field.unsigned =
+              Array.isArray(d.definition.suffix) &&
+              d.definition.suffix.includes("UNSIGNED");
             field.notNull = false;
-            if (d.nullable) field.notNull = true;
+            // d.nullable is truthy for BOTH `NOT NULL` ({type:"not null"}) and
+            // an explicit `NULL` ({type:"null"}); only the former is NOT NULL.
+            if (d.nullable && d.nullable.type === "not null")
+              field.notNull = true;
             field.primary = false;
             if (d.primary_key) field.primary = true;
             field.default = "";

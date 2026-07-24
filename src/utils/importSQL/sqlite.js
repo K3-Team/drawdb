@@ -212,9 +212,9 @@ export function fromSQLite(ast, diagramDb = DB.GENERIC) {
         tables.push(table);
       } else if (e.keyword === "index") {
         const index = {
-          name: e.index,
+          name: e.index?.name ?? e.index,
           unique: e.index_type === "unique",
-          fields: e.index_columns.map((f) => f.column),
+          fields: e.index_columns.map((f) => f.column ?? f.value),
         };
 
         const table = tables.find((t) => t.name === e.table.table);
