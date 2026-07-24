@@ -61,3 +61,49 @@ describe("generateMigrationSQL create/drop", () => {
     });
   }
 });
+
+// Regression: MySQL/MariaDB MODIFY COLUMN replaces the whole column definition,
+// so a partial MODIFY silently drops DEFAULT/AUTO_INCREMENT/etc. Changing one
+// attribute (here a comment) must re-emit the full definition, keeping DEFAULT.
+describe("generateMigrationSQL preserves attributes on MySQL MODIFY", () => {
+  for (const db of [DB.MYSQL, DB.MARIADB]) {
+    it(`${db}: comment change keeps NOT NULL and DEFAULT`, () => {
+      const field = {
+        id: 10,
+        name: "age",
+        type: "INT",
+        size: "",
+        notNull: true,
+        primary: false,
+        unique: false,
+        increment: false,
+        default: "5",
+        check: "",
+        comment: "",
+        values: [],
+      };
+      const from = {
+        tables: [{ ...table(1, "users"), fields: [{ ...field }] }],
+      };
+      const to = {
+        tables: [
+          { ...table(1, "users"), fields: [{ ...field, comment: "an age" }] },
+        ],
+      };
+      const { up } = generateMigrationSQL(
+        {
+          "tables[id=1,name=users]#fields[id=10,name=age,type=INT]#comment": {
+            from: "",
+            to: "an age",
+          },
+        },
+        db,
+        { from, to },
+      );
+      expect(up).toMatch(/MODIFY COLUMN/i);
+      expect(up).toContain("NOT NULL");
+      expect(up).toContain("DEFAULT 5"); // would be dropped by a partial MODIFY
+      expect(up).toContain("COMMENT 'an age'");
+    });
+  }
+});
