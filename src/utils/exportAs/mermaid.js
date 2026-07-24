@@ -1,6 +1,7 @@
 import { Cardinality } from "../../data/constants";
 import { dbToTypes } from "../../data/datatypes";
 import i18n from "../../i18n/i18n";
+import { mermaidToken } from "./escape";
 
 export function jsonToMermaid(obj) {
   function getMermaidRelationship(relationship) {
@@ -23,18 +24,17 @@ export function jsonToMermaid(obj) {
     .map((table) => {
       const fields = table.fields
         .map((field) => {
-          const fieldType =
-            field.type +
-            ((dbToTypes[obj.database][field.type].isSized ||
+          const sized =
+            (dbToTypes[obj.database][field.type].isSized ||
               dbToTypes[obj.database][field.type].hasPrecision) &&
-            field.size &&
-            field.size !== ""
-              ? "(" + field.size + ")"
-              : "");
-          return `\t\t${fieldType} ${field.name}`;
+            /^[0-9, ]+$/.test(String(field.size ?? "").trim());
+          const fieldType =
+            mermaidToken(field.type) +
+            (sized ? "(" + String(field.size).trim() + ")" : "");
+          return `\t\t${fieldType} ${mermaidToken(field.name)}`;
         })
         .join("\n");
-      return `\t${table.name} {\n${fields}\n\t}`;
+      return `\t${mermaidToken(table.name)} {\n${fields}\n\t}`;
     })
     .join("\n\n");
 
@@ -45,7 +45,7 @@ export function jsonToMermaid(obj) {
             (t) => t.id === r.startTableId,
           ).name;
           const endTable = obj.tables.find((t) => t.id === r.endTableId).name;
-          return `\t${startTable} ${getMermaidRelationship(r.cardinality)} ${endTable} : references`;
+          return `\t${mermaidToken(startTable)} ${getMermaidRelationship(r.cardinality)} ${mermaidToken(endTable)} : references`;
         })
         .join("\n")
     : "";

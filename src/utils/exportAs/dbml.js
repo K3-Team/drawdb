@@ -1,9 +1,16 @@
-import { escapeQuotes } from "../exportSQL/sqlSafety";
 import { Cardinality } from "../../data/constants";
 import { dbToTypes } from "../../data/datatypes";
 import i18n from "../../i18n/i18n";
 
 import { isFunction, isKeyword, getRelationshipFields } from "../utils";
+import {
+  dbmlString,
+  dbmlSetting,
+  dbmlColor,
+  dbmlType,
+  dbmlSize,
+  dbmlBacktick,
+} from "./escape";
 
 const IDENT_SAFE_RE = /^[A-Za-z_][A-Za-z0-9_]*$/;
 
@@ -18,15 +25,22 @@ function quoteIdentifier(name) {
 }
 
 function parseDefaultDbml(field, database) {
-  if (isFunction(field.default)) {
-    return `\`${field.default}\``;
+  const d = field.default;
+  // A function/expression default is emitted in backticks -- strip backticks so
+  // the expression can't close its own delimiter and inject.
+  if (isFunction(d)) {
+    return dbmlBacktick(d);
   }
-
-  if (isKeyword(field.default) || !dbToTypes[database][field.type]?.hasQuotes) {
-    return field.default;
+  // Keywords come from an allowlist, so they are safe as-is.
+  if (isKeyword(d)) {
+    return d;
   }
-
-  return `'${escapeQuotes(field.default)}'`;
+  // Unquoted (numeric/boolean) context: emit as-is only if it is a plain
+  // literal, otherwise quote it as a string so it cannot inject.
+  if (!dbToTypes[database][field.type]?.hasQuotes) {
+    return /^[A-Za-z0-9_.+\- ]+$/.test(String(d)) ? d : `'${dbmlString(d)}'`;
+  }
+  return `'${dbmlString(d)}'`;
 }
 
 function columnDefault(field, database) {
@@ -76,19 +90,16 @@ function cardinality(rel) {
 
 function fieldSize(field, database) {
   const typeMetadata = dbToTypes[database][field.type];
+  const size = dbmlSize(field.size);
 
-  if ((typeMetadata?.isSized || typeMetadata?.hasPrecision) && field.size)
-    return `(${field.size})`;
+  if ((typeMetadata?.isSized || typeMetadata?.hasPrecision) && size)
+    return `(${size})`;
 
   return "";
 }
 
 function processComment(comment) {
-  if (comment.includes("\n")) {
-    return `'''${comment}'''`;
-  }
-
-  return `'${escapeQuotes(comment)}'`;
+  return `'${dbmlString(comment)}'`;
 }
 
 function columnComment(field) {
@@ -101,11 +112,11 @@ function columnComment(field) {
 
 function processType(type) {
   // TODO: remove after a while
-  if (type.toUpperCase() === "TIMESTAMP WITH TIME ZONE") {
+  if (String(type).toUpperCase() === "TIMESTAMP WITH TIME ZONE") {
     return "timestamptz";
   }
 
-  return type.toLowerCase();
+  return dbmlType(type);
 }
 
 export function toDBML(diagram) {
@@ -130,7 +141,7 @@ export function toDBML(diagram) {
       (p) => endTableFields.find((f) => f.id === p.endFieldId)?.name,
     );
 
-    return `Ref ${quoteIdentifier(rel.name)} {\n\t${columnRef(startTableName, startFieldNames)} ${cardinality(rel)} ${columnRef(endTableName, endFieldNames)} [ delete: ${rel.deleteConstraint.toLowerCase()}, update: ${rel.updateConstraint.toLowerCase()} ]\n}`;
+    return `Ref ${quoteIdentifier(rel.name)} {\n\t${columnRef(startTableName, startFieldNames)} ${cardinality(rel)} ${columnRef(endTableName, endFieldNames)} [ delete: ${dbmlSetting(String(rel.deleteConstraint ?? "").toLowerCase())}, update: ${dbmlSetting(String(rel.updateConstraint ?? "").toLowerCase())} ]\n}`;
   };
 
   let enumDefinitions = "";
@@ -154,7 +165,7 @@ export function toDBML(diagram) {
     .join("\n\n")}${enumDefinitions}${diagram.tables
     .map(
       (table) =>
-        `Table ${quoteIdentifier(table.name)} [headercolor: ${table.color}] {\n${table.fields
+        `Table ${quoteIdentifier(table.name)} [headercolor: ${dbmlColor(table.color) || "#175e7a"}] {\n${table.fields
           .map(
             (field) =>
               `\t${quoteIdentifier(field.name)} ${
@@ -171,7 +182,7 @@ export function toDBML(diagram) {
             (index) =>
               `\t\t(${index.fields
                 .map((f) => quoteIdentifier(f))
-                .join(", ")}) [ name: '${index.name}'${
+                .join(", ")}) [ name: '${dbmlString(index.name)}'${
                 index.unique ? ", unique" : ""
               } ]`,
           );
@@ -181,7 +192,7 @@ export function toDBML(diagram) {
               (uc) =>
                 `\t\t(${uc.fields
                   .map((f) => quoteIdentifier(f))
-                  .join(", ")}) [ name: '${uc.name}', unique ]`,
+                  .join(", ")}) [ name: '${dbmlString(uc.name)}', unique ]`,
             );
           const entries = [...indexEntries, ...uniqueEntries];
           return entries.length > 0
