@@ -6,7 +6,7 @@ import { Action, ObjectType } from "../../../data/constants";
 import { useLayout, useNotes, useUndoRedo } from "../../../hooks";
 import { useTranslation } from "react-i18next";
 
-export default function NoteInfo({ data, nid }) {
+export default function NoteInfo({ data }) {
   const { layout } = useLayout();
   const { updateNote, deleteNote } = useNotes();
   const { setUndoStack, setRedoStack } = useUndoRedo();
@@ -122,7 +122,7 @@ export default function NoteInfo({ data, nid }) {
               {
                 action: Action.EDIT,
                 element: ObjectType.NOTE,
-                nid: nid,
+                nid: data.id,
                 undo: editField,
                 redo: { content: e.target.value, height: newHeight },
                 message: t("edit_note", {
@@ -147,7 +147,7 @@ export default function NoteInfo({ data, nid }) {
             type="danger"
             disabled={layout.readOnly}
             icon={<IconDeleteStroked />}
-            onClick={() => deleteNote(nid, true)}
+            onClick={() => deleteNote(data.id, true)}
           />
         </div>
       </div>

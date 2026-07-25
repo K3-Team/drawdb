@@ -50,8 +50,8 @@ export default function NotesTab() {
           }}
           accordion
         >
-          {notes.map((n, i) => (
-            <NoteInfo data={n} key={i} nid={i} />
+          {notes.map((n) => (
+            <NoteInfo data={n} key={n.id} />
           ))}
         </Collapse>
       )}

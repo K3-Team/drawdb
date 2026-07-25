@@ -201,13 +201,21 @@ export default function ControlPanel({
       } else if (a.element === ObjectType.AREA) {
         setRedoStack((prev) => [
           ...prev,
-          { ...a, x: areas[a.id].x, y: areas[a.id].y },
+          {
+            ...a,
+            x: areas.find((e) => e.id === a.id)?.x,
+            y: areas.find((e) => e.id === a.id)?.y,
+          },
         ]);
         updateArea(a.id, { x: a.x, y: a.y });
       } else if (a.element === ObjectType.NOTE) {
         setRedoStack((prev) => [
           ...prev,
-          { ...a, x: notes[a.id].x, y: notes[a.id].y },
+          {
+            ...a,
+            x: notes.find((e) => e.id === a.id)?.x,
+            y: notes.find((e) => e.id === a.id)?.y,
+          },
         ]);
         updateNote(a.id, { x: a.x, y: a.y });
       }
@@ -401,13 +409,21 @@ export default function ControlPanel({
       } else if (a.element === ObjectType.AREA) {
         setUndoStack((prev) => [
           ...prev,
-          { ...a, x: areas[a.id].x, y: areas[a.id].y },
+          {
+            ...a,
+            x: areas.find((e) => e.id === a.id)?.x,
+            y: areas.find((e) => e.id === a.id)?.y,
+          },
         ]);
         updateArea(a.id, { x: a.x, y: a.y });
       } else if (a.element === ObjectType.NOTE) {
         setUndoStack((prev) => [
           ...prev,
-          { ...a, x: notes[a.id].x, y: notes[a.id].y },
+          {
+            ...a,
+            x: notes.find((e) => e.id === a.id)?.x,
+            y: notes.find((e) => e.id === a.id)?.y,
+          },
         ]);
         updateNote(a.id, { x: a.x, y: a.y });
       }
@@ -749,22 +765,16 @@ export default function ControlPanel({
         });
         break;
       }
-      case ObjectType.NOTE:
-        addNote({
-          ...notes[selectedElement.id],
-          x: notes[selectedElement.id].x + 20,
-          y: notes[selectedElement.id].y + 20,
-          id: notes.length,
-        });
+      case ObjectType.NOTE: {
+        const note = notes.find((e) => e.id === selectedElement.id);
+        addNote({ ...note, x: note.x + 20, y: note.y + 20, id: undefined });
         break;
-      case ObjectType.AREA:
-        addArea({
-          ...areas[selectedElement.id],
-          x: areas[selectedElement.id].x + 20,
-          y: areas[selectedElement.id].y + 20,
-          id: areas.length,
-        });
+      }
+      case ObjectType.AREA: {
+        const area = areas.find((e) => e.id === selectedElement.id);
+        addArea({ ...area, x: area.x + 20, y: area.y + 20, id: undefined });
         break;
+      }
       default:
         break;
     }
@@ -780,12 +790,16 @@ export default function ControlPanel({
         break;
       case ObjectType.NOTE:
         navigator.clipboard
-          .writeText(JSON.stringify({ ...notes[selectedElement.id] }))
+          .writeText(
+            JSON.stringify(notes.find((e) => e.id === selectedElement.id)),
+          )
           .catch(() => Toast.error(t("oops_smth_went_wrong")));
         break;
       case ObjectType.AREA:
         navigator.clipboard
-          .writeText(JSON.stringify({ ...areas[selectedElement.id] }))
+          .writeText(
+            JSON.stringify(areas.find((e) => e.id === selectedElement.id)),
+          )
           .catch(() => Toast.error(t("oops_smth_went_wrong")));
         break;
       default:
@@ -814,19 +828,9 @@ export default function ControlPanel({
           },
         });
       } else if (v.validate(obj, areaSchema).valid) {
-        addArea({
-          ...obj,
-          x: obj.x + 20,
-          y: obj.y + 20,
-          id: areas.length,
-        });
+        addArea({ ...obj, x: obj.x + 20, y: obj.y + 20, id: undefined });
       } else if (v.validate(obj, noteSchema).valid) {
-        addNote({
-          ...obj,
-          x: obj.x + 20,
-          y: obj.y + 20,
-          id: notes.length,
-        });
+        addNote({ ...obj, x: obj.x + 20, y: obj.y + 20, id: undefined });
       }
     });
   };

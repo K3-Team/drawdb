@@ -20,29 +20,34 @@ export default function NotesContextProvider({ children }) {
   const { emitDelta, isApplyingRemoteRef } = useCollab();
   const shouldEmit = () => !isApplyingRemoteRef?.current;
 
+  // Stable ids: never reused, never renumbered. Restoring a deleted note (its
+  // id is now free) keeps that id; a fresh create or a duplicate/paste (whose
+  // id would collide) gets max(id)+1.
+  const nextNoteId = () =>
+    notes.length ? Math.max(...notes.map((n) => n.id)) + 1 : 0;
+
   const addNote = (data, addToHistory = true) => {
-    let created = data;
+    const isRestore =
+      data && data.id != null && !notes.some((n) => n.id === data.id);
+    let created;
     if (data) {
-      setNotes((prev) => {
-        const temp = prev.slice();
-        temp.splice(data.id, 0, data);
-        return temp.map((t, i) => ({ ...t, id: i }));
-      });
+      created = isRestore ? data : { ...data, id: nextNoteId() };
     } else {
       const height = 88;
+      const id = nextNoteId();
       created = {
-        id: notes.length,
+        id,
         x: transform.pan.x,
         y: transform.pan.y - height / 2,
-        title: `note_${notes.length}`,
+        title: `note_${id}`,
         content: "",
         locked: false,
         color: defaultNoteTheme,
         height,
         width: noteWidth,
       };
-      setNotes((prev) => [...prev, { ...created, id: prev.length }]);
     }
+    setNotes((prev) => [...prev, created]);
     if (addToHistory) {
       setUndoStack((prev) => [
         ...prev,
@@ -66,21 +71,20 @@ export default function NotesContextProvider({ children }) {
 
   const deleteNote = (id, addToHistory = true) => {
     if (addToHistory) {
+      const note = notes.find((e) => e.id === id);
       Toast.success(t("note_deleted"));
       setUndoStack((prev) => [
         ...prev,
         {
           action: Action.DELETE,
           element: ObjectType.NOTE,
-          data: notes[id],
-          message: t("delete_note", { noteTitle: notes[id].title }),
+          data: note,
+          message: t("delete_note", { noteTitle: note.title }),
         },
       ]);
       setRedoStack([]);
     }
-    setNotes((prev) =>
-      prev.filter((e) => e.id !== id).map((e, i) => ({ ...e, id: i })),
-    );
+    setNotes((prev) => prev.filter((e) => e.id !== id));
     if (id === selectedElement.id) {
       setSelectedElement((prev) => ({
         ...prev,
