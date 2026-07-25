@@ -672,7 +672,7 @@ export default function ControlPanel({
         if (selectedElement.currentTab !== Tab.TABLES) return;
         document
           .getElementById(`scroll_table_${selectedElement.id}`)
-          .scrollIntoView({ behavior: "smooth" });
+          ?.scrollIntoView({ behavior: "smooth" });
       }
     } else if (selectedElement.element === ObjectType.AREA) {
       if (layout.sidebar) {
@@ -683,7 +683,7 @@ export default function ControlPanel({
         if (selectedElement.currentTab !== Tab.AREAS) return;
         document
           .getElementById(`scroll_area_${selectedElement.id}`)
-          .scrollIntoView({ behavior: "smooth" });
+          ?.scrollIntoView({ behavior: "smooth" });
       } else {
         setSelectedElement((prev) => ({
           ...prev,
@@ -701,7 +701,7 @@ export default function ControlPanel({
         if (selectedElement.currentTab !== Tab.NOTES) return;
         document
           .getElementById(`scroll_note_${selectedElement.id}`)
-          .scrollIntoView({ behavior: "smooth" });
+          ?.scrollIntoView({ behavior: "smooth" });
       } else {
         setSelectedElement((prev) => ({
           ...prev,

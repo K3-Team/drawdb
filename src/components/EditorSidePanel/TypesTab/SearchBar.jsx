@@ -41,7 +41,7 @@ export default function Searchbar() {
         }));
         document
           .getElementById(`scroll_type_${i}`)
-          .scrollIntoView({ behavior: "smooth" });
+          ?.scrollIntoView({ behavior: "smooth" });
       }}
       className="w-full"
     />

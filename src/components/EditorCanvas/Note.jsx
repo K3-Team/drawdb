@@ -98,9 +98,12 @@ export default function Note({ data, onPointerDown }) {
   const handleBlur = (e) => {
     if (e.target.value === editField.content) return;
     const textarea = document.getElementById(`note_${data.id}`);
-    textarea.style.height = "0";
-    textarea.style.height = textarea.scrollHeight + "px";
-    const newHeight = textarea.scrollHeight + 16 + 20 + 4;
+    let newHeight = data.height;
+    if (textarea) {
+      textarea.style.height = "0";
+      textarea.style.height = textarea.scrollHeight + "px";
+      newHeight = textarea.scrollHeight + 16 + 20 + 4;
+    }
     setUndoStack((prev) => [
       ...prev,
       {
@@ -173,7 +176,7 @@ export default function Note({ data, onPointerDown }) {
     if (layout.sidebar && selectedElement.currentTab === Tab.NOTES) {
       document
         .getElementById(`scroll_note_${data.id}`)
-        .scrollIntoView({ behavior: "smooth" });
+        ?.scrollIntoView({ behavior: "smooth" });
     }
   };
 

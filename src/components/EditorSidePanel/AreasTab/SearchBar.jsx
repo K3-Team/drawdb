@@ -33,7 +33,7 @@ export default function SearchBar() {
         const { id } = areas.find((t) => t.name === v);
         document
           .getElementById(`scroll_area_${id}`)
-          .scrollIntoView({ behavior: "smooth" });
+          ?.scrollIntoView({ behavior: "smooth" });
       }}
       className="w-full"
     />

@@ -34,7 +34,7 @@ export default function SearchBar({ setActiveKey }) {
         setActiveKey(`${id}`);
         document
           .getElementById(`scroll_note_${id}`)
-          .scrollIntoView({ behavior: "smooth" });
+          ?.scrollIntoView({ behavior: "smooth" });
       }}
       className="w-full"
     />

@@ -33,7 +33,7 @@ export default function SearchBar() {
         const e = enums.find((t) => t.name === v);
         document
           .getElementById(`scroll_enum_${e.id}`)
-          .scrollIntoView({ behavior: "smooth" });
+          ?.scrollIntoView({ behavior: "smooth" });
       }}
       className="w-full"
     />

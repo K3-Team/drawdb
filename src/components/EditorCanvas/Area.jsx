@@ -109,7 +109,7 @@ export default function Area({
       if (selectedElement.currentTab !== Tab.AREAS) return;
       document
         .getElementById(`scroll_area_${data.id}`)
-        .scrollIntoView({ behavior: "smooth" });
+        ?.scrollIntoView({ behavior: "smooth" });
     } else {
       setSelectedElement((prev) => ({
         ...prev,

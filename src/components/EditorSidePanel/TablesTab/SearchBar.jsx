@@ -50,12 +50,12 @@ export default function SearchBar({ tables }) {
         }));
         document
           .getElementById(`scroll_table_${tableId}`)
-          .scrollIntoView({ behavior: "smooth" });
+          ?.scrollIntoView({ behavior: "smooth" });
 
         if (!children) {
           document
             .getElementById(`scroll_table_${tableId}_input_${id}`)
-            .focus();
+            ?.focus();
         }
       }}
       onChangeWithObject

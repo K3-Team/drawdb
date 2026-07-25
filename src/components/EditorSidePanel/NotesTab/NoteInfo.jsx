@@ -94,10 +94,15 @@ export default function NoteInfo({ data, nid }) {
           autosize
           readonly={layout.readOnly}
           onChange={(value) => {
+            // note_${id} is the canvas note's textarea; it may not be mounted
+            // (scrolled off), so guard the DOM sizing but always save content.
             const textarea = document.getElementById(`note_${data.id}`);
-            textarea.style.height = "0";
-            textarea.style.height = textarea.scrollHeight + "px";
-            const newHeight = textarea.scrollHeight + 16 + 20 + 4;
+            let newHeight = data.height;
+            if (textarea) {
+              textarea.style.height = "0";
+              textarea.style.height = textarea.scrollHeight + "px";
+              newHeight = textarea.scrollHeight + 16 + 20 + 4;
+            }
             updateNote(data.id, { height: newHeight, content: value });
           }}
           onFocus={(e) =>
@@ -106,9 +111,12 @@ export default function NoteInfo({ data, nid }) {
           onBlur={(e) => {
             if (e.target.value === editField.content) return;
             const textarea = document.getElementById(`note_${data.id}`);
-            textarea.style.height = "0";
-            textarea.style.height = textarea.scrollHeight + "px";
-            const newHeight = textarea.scrollHeight + 16 + 20 + 4;
+            let newHeight = data.height;
+            if (textarea) {
+              textarea.style.height = "0";
+              textarea.style.height = textarea.scrollHeight + "px";
+              newHeight = textarea.scrollHeight + 16 + 20 + 4;
+            }
             setUndoStack((prev) => [
               ...prev,
               {
