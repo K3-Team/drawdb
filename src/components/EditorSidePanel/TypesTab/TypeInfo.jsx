@@ -90,7 +90,7 @@ export default function TypeInfo({ index, data }) {
           />
         </div>
         {data.fields.map((f, j) => (
-          <TypeField key={j} data={f} fid={j} tid={index} />
+          <TypeField key={j} data={f} fid={j} tid={typeId} />
         ))}
         <Card
           bodyStyle={{ padding: "4px" }}

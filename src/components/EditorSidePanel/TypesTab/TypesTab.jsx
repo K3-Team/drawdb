@@ -68,7 +68,7 @@ export default function TypesTab() {
           accordion
         >
           {types.map((t, i) => (
-            <TypeInfo data={t} key={i} index={i} />
+            <TypeInfo data={t} key={t.id} index={i} />
           ))}
         </Collapse>
       )}

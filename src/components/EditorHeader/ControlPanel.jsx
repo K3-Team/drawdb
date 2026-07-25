@@ -328,7 +328,7 @@ export default function ControlPanel({
         }
         if (a.component === "field") {
           updateType(a.tid, {
-            fields: types[a.tid].fields.map((e, i) =>
+            fields: types.find((ty) => ty.id === a.tid).fields.map((e, i) =>
               i === a.fid ? { ...e, ...a.undo } : e,
             ),
           });
@@ -544,13 +544,13 @@ export default function ControlPanel({
           });
         } else if (a.component === "field") {
           updateType(a.tid, {
-            fields: types[a.tid].fields.map((e, i) =>
+            fields: types.find((ty) => ty.id === a.tid).fields.map((e, i) =>
               i === a.fid ? { ...e, ...a.redo } : e,
             ),
           });
         } else if (a.component === "field_delete") {
           updateType(a.tid, {
-            fields: types[a.tid].fields.filter((field, i) => i !== a.fid),
+            fields: types.find((ty) => ty.id === a.tid).fields.filter((field, i) => i !== a.fid),
           });
         } else if (a.component === "self") {
           updateType(a.tid, a.redo);
