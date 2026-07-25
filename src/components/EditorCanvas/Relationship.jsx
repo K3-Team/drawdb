@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState, useEffect } from "react";
+import { memo, useMemo, useRef, useState, useEffect } from "react";
 import { Cardinality, ObjectType, Tab } from "../../data/constants";
 import { calcPath, calcCompositePath } from "../../utils/calcPath";
 import { useDiagram, useSettings, useLayout, useSelect } from "../../hooks";
@@ -13,7 +13,11 @@ import {
 
 const labelFontSize = 16;
 
-export default function Relationship({ data }) {
+// Memoized: its only prop is the stable `data` object, so it skips re-rendering
+// when Canvas re-renders for unrelated reasons (e.g. pointer moves). It does not
+// read the pointer/CanvasContext, so this is a real win for the expensive path
+// computation below.
+function Relationship({ data }) {
   const { settings } = useSettings();
   const { tables, relationships } = useDiagram();
   const { layout } = useLayout();
@@ -295,3 +299,5 @@ function CardinalityLabel({ x, y, text, r = 12, padding = 14 }) {
     </g>
   );
 }
+
+export default memo(Relationship);

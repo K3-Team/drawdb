@@ -141,25 +141,40 @@ export function CanvasContextProvider({ children, ...attrs }) {
 
   useEventListener("pointermove", detectPointerMovement, canvasWrapRef);
 
-  const contextValue = {
-    canvas: {
+  // Memoized so the provider only hands consumers a new value object when one
+  // of these actually changes (previously a fresh object every render, i.e.
+  // on every pointermove, re-rendering every canvas consumer).
+  const contextValue = useMemo(
+    () => ({
+      canvas: {
+        screenSize,
+        viewBox,
+      },
+      coords: {
+        toDiagramSpace,
+        toScreenSpace,
+      },
+      pointer: {
+        active: pointerActive,
+        spaces: {
+          screen: pointerScreenCoords,
+          diagram: pointerDiagramCoords,
+        },
+        style: pointerStyle,
+        setStyle: setPointerStyle,
+      },
+    }),
+    [
       screenSize,
       viewBox,
-    },
-    coords: {
       toDiagramSpace,
       toScreenSpace,
-    },
-    pointer: {
-      active: pointerActive,
-      spaces: {
-        screen: pointerScreenCoords,
-        diagram: pointerDiagramCoords,
-      },
-      style: pointerStyle,
-      setStyle: setPointerStyle,
-    },
-  };
+      pointerActive,
+      pointerScreenCoords,
+      pointerDiagramCoords,
+      pointerStyle,
+    ],
+  );
 
   return (
     <CanvasContext.Provider value={contextValue}>

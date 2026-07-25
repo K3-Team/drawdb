@@ -1,4 +1,4 @@
-import { createContext, useCallback, useState } from "react";
+import { createContext, useCallback, useMemo, useState } from "react";
 
 export const TransformContext = createContext(null);
 
@@ -38,8 +38,15 @@ export default function TransformContextProvider({ children }) {
     [setTransformInternal],
   );
 
+  // setTransform is already stable (useCallback), so the memoized value only
+  // changes when the transform (pan/zoom) does, instead of every render.
+  const value = useMemo(
+    () => ({ transform, setTransform }),
+    [transform, setTransform],
+  );
+
   return (
-    <TransformContext.Provider value={{ transform, setTransform }}>
+    <TransformContext.Provider value={value}>
       {children}
     </TransformContext.Provider>
   );
