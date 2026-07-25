@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { memo, useMemo, useState } from "react";
 import {
   Action,
   Tab,
@@ -50,7 +50,7 @@ import {
   getRelationshipFields,
 } from "../../utils/utils";
 
-export default function Table({
+function Table({
   tableData,
   onPointerDown,
   setHoveredTable,
@@ -290,7 +290,9 @@ export default function Table({
         className={`group drop-shadow-lg rounded-md ${
           lockedByParticipant ? "cursor-not-allowed" : "cursor-move"
         }`}
-        onPointerDown={onPointerDown}
+        onPointerDown={() =>
+          onPointerDown({ element: tableData, type: ObjectType.TABLE })
+        }
       >
         <div
           onDoubleClick={openEditor}
@@ -675,3 +677,5 @@ export default function Table({
     );
   }
 }
+
+export default memo(Table);

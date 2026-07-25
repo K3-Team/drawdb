@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useElementPointerDown } from "./useElementPointerDown";
 import { Slot } from "../../context/ExtensionsContext";
 import {
   Action,
@@ -35,6 +36,12 @@ import { getRectFromEndpoints, isInsideRect } from "../../utils/rect";
 import { State, noteWidth } from "../../data/constants";
 import { nanoid } from "nanoid";
 
+const notDragging = {
+  id: -1,
+  type: ObjectType.NONE,
+  grabOffset: { x: 0, y: 0 },
+};
+
 export default function Canvas() {
   const { t } = useTranslation();
 
@@ -60,11 +67,6 @@ export default function Canvas() {
     bulkSelectedElements,
     setBulkSelectedElements,
   } = useSelect();
-  const notDragging = {
-    id: -1,
-    type: ObjectType.NONE,
-    grabOffset: { x: 0, y: 0 },
-  };
   const [dragging, setDragging] = useState(notDragging);
   const [linking, setLinking] = useState(false);
   const [linkingLine, setLinkingLine] = useState({
@@ -137,9 +139,11 @@ export default function Canvas() {
     ctrlKey: false,
     metaKey: false,
   });
-  // this is used to store the element that is clicked on
-  // at the moment, and shouldn't be a part of the state
-  let elementPointerDown = null;
+  // Tracks the element (if any) that received the pointerdown starting the
+  // current gesture. register/consume are stable, so the diagram elements can
+  // be wrapped in React.memo without their onPointerDown breaking the memo.
+  const { register: registerElementPointerDown, consume: consumeElementPointerDown } =
+    useElementPointerDown();
 
   const isSameElement = (el1, el2) => {
     return el1.id === el2.id && el1.type === el2.type;
@@ -452,6 +456,9 @@ export default function Canvas() {
    * @param {PointerEvent} e
    */
   const handlePointerDown = async (e) => {
+    // Read + clear the element (if any) registered by its own onPointerDown,
+    // which fired just before this bubbled to the canvas container.
+    const pointerDownElement = consumeElementPointerDown();
     if (!e.isPrimary) return;
 
     // don't pan if the sidesheet for editing a table is open
@@ -468,13 +475,13 @@ export default function Canvas() {
     const isMouseRightButton = e.button === 2;
 
     if (isMouseLeftButton) {
-      const pointerDownElement = elementPointerDown;
       setBulkSelectRect({
         x1: pointer.spaces.diagram.x,
         y1: pointer.spaces.diagram.y,
         x2: pointer.spaces.diagram.x,
         y2: pointer.spaces.diagram.y,
-        show: elementPointerDown === null || !elementPointerDown.element.locked,
+        show:
+          pointerDownElement === null || !pointerDownElement.element.locked,
         ctrlKey: e.ctrlKey,
         metaKey: e.metaKey,
       });
@@ -655,11 +662,13 @@ export default function Canvas() {
     });
   };
 
-  const handleGripField = () => {
+  // Stable so React.memo(Table) holds. All three setters are stable and
+  // notDragging is a module constant, so no dependencies.
+  const handleGripField = useCallback(() => {
     setPanning((old) => ({ ...old, isPanning: false }));
     setDragging(notDragging);
     setLinking(true);
-  };
+  }, []);
 
   const getCardinality = (startField, endField) => {
     const startIsUnique = startField.unique || startField.primary;
@@ -836,12 +845,7 @@ export default function Canvas() {
               data={a}
               setResize={setAreaResize}
               setInitDimensions={setAreaInitDimensions}
-              onPointerDown={() => {
-                elementPointerDown = {
-                  element: a,
-                  type: ObjectType.AREA,
-                };
-              }}
+              onPointerDown={registerElementPointerDown}
             />
           ))}
           {relationships.map((e) => (
@@ -854,12 +858,7 @@ export default function Canvas() {
               setHoveredTable={setHoveredTable}
               handleGripField={handleGripField}
               setLinkingLine={setLinkingLine}
-              onPointerDown={() => {
-                elementPointerDown = {
-                  element: table,
-                  type: ObjectType.TABLE,
-                };
-              }}
+              onPointerDown={registerElementPointerDown}
             />
           ))}
           {linking && (
@@ -875,12 +874,7 @@ export default function Canvas() {
             <Note
               key={n.id}
               data={n}
-              onPointerDown={() => {
-                elementPointerDown = {
-                  element: n,
-                  type: ObjectType.NOTE,
-                };
-              }}
+              onPointerDown={registerElementPointerDown}
             />
           ))}
           {bulkSelectRect.show && (
