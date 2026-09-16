@@ -177,4 +177,27 @@ describe("jsonToDocumentation", () => {
   it("does not crash on hostile identifiers", () => {
     expect(typeof jsonToDocumentation(hostile())).toBe("string");
   });
+  it("lists specialisations and min..max participation", () => {
+    const base = fixture().relationships[0];
+    const out = jsonToDocumentation(
+      fixture({
+        relationships: [
+          { ...base, participation: { end: "optional" } },
+          {
+            ...base,
+            id: "r2",
+            name: "is_a_posts_users",
+            startFieldId: "f3",
+            cardinality: "one_to_one",
+            kind: "subtype",
+            subtype: { group: "role", disjoint: true, total: true, discriminatorFieldId: "f2" },
+          },
+        ],
+      }),
+    );
+    expect(out).toContain("## Specialisations");
+    expect(out).toContain("**users** (role): disjoint, total, discriminator `email`");
+    expect(out).toContain("posts");
+    expect(out).toContain("**posts to users**: many_to_one (0..n : 0..1)");
+  });
 });
