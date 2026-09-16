@@ -8,7 +8,16 @@ import {
   VALID_CARDINALITIES,
   VALID_CONSTRAINTS,
   VALID_DATABASES,
+  RelationshipKind,
 } from "./constants.js";
+import {
+  isSubtype,
+  siblingsOf,
+  subtypeName,
+  normalizeKind,
+  normalizeSubtype,
+  normalizeParticipation,
+} from "./specialization.js";
 
 // Pure transforms over the wire document
 // ({ database, tables, references, notes, areas, enums?, types? }). Each
@@ -170,6 +179,12 @@ export function deleteField(doc, tableId, fieldId) {
 
 // ---- relationships --------------------------------------------------------
 
+function primaryKeyOf(table) {
+  const pk = table.fields.find((f) => f.primary);
+  if (!pk) throw new Error(`Table "${table.name}" has no primary key`);
+  return pk;
+}
+
 export function addRelationship(doc, data = {}) {
   const {
     startTableId,
@@ -179,7 +194,10 @@ export function addRelationship(doc, data = {}) {
     name,
     cardinality = Cardinality.ONE_TO_MANY,
     updateConstraint = Constraint.NONE,
-    deleteConstraint = Constraint.NONE,
+    deleteConstraint,
+    kind: rawKind,
+    subtype,
+    participation,
   } = data;
   const start = findTable(doc, startTableId);
   const end = findTable(doc, endTableId);
@@ -187,33 +205,68 @@ export function addRelationship(doc, data = {}) {
     throw new Error(`Start field not found: ${startFieldId}`);
   if (!end.fields.some((f) => String(f.id) === String(endFieldId)))
     throw new Error(`End field not found: ${endFieldId}`);
+  const kind = normalizeKind(rawKind);
   if (!VALID_CARDINALITIES.includes(cardinality))
     throw new Error(`Invalid cardinality: ${cardinality}`);
   if (!VALID_CONSTRAINTS.includes(updateConstraint))
     throw new Error(`Invalid updateConstraint: ${updateConstraint}`);
-  if (!VALID_CONSTRAINTS.includes(deleteConstraint))
-    throw new Error(`Invalid deleteConstraint: ${deleteConstraint}`);
+  const del =
+    deleteConstraint ??
+    (kind === RelationshipKind.SUBTYPE ? Constraint.CASCADE : Constraint.NONE);
+  if (!VALID_CONSTRAINTS.includes(del))
+    throw new Error(`Invalid deleteConstraint: ${del}`);
+
   const id = nanoid();
-  relationshipsOf(doc).push({
+  const rel = {
     id,
-    name: name ?? `fk_${start.name}_${end.name}`,
+    name:
+      name ??
+      (kind === RelationshipKind.SUBTYPE
+        ? subtypeName(start.name, end.name)
+        : `fk_${start.name}_${end.name}`),
     startTableId,
     startFieldId,
     endTableId,
     endFieldId,
-    cardinality,
+    cardinality: kind === RelationshipKind.SUBTYPE ? Cardinality.ONE_TO_ONE : cardinality,
     updateConstraint,
-    deleteConstraint,
-  });
+    deleteConstraint: del,
+  };
+  if (kind === RelationshipKind.SUBTYPE) {
+    rel.kind = kind;
+    rel.subtype = normalizeSubtype(subtype ?? {}, end);
+  } else if (participation !== undefined && participation !== null) {
+    rel.participation = normalizeParticipation(participation);
+  }
+  relationshipsOf(doc).push(rel);
   return { id };
 }
 
 export function updateRelationship(doc, id, updates = {}) {
-  const rel = relationshipsOf(doc).find((r) => String(r.id) === String(id));
+  const refs = relationshipsOf(doc);
+  const rel = refs.find((r) => String(r.id) === String(id));
   if (!rel) throw new Error(`Relationship not found: ${id}`);
+  const end = findTable(doc, rel.endTableId);
+
+  if (updates.kind !== undefined) {
+    const kind = normalizeKind(updates.kind);
+    if (kind === RelationshipKind.SUBTYPE) {
+      rel.kind = kind;
+      rel.cardinality = Cardinality.ONE_TO_ONE;
+      if (rel.deleteConstraint === Constraint.NONE)
+        rel.deleteConstraint = Constraint.CASCADE;
+      delete rel.participation;
+      rel.subtype = normalizeSubtype(updates.subtype ?? rel.subtype ?? {}, end);
+    } else {
+      delete rel.kind;
+      delete rel.subtype;
+    }
+  }
   if (updates.cardinality !== undefined) {
     if (!VALID_CARDINALITIES.includes(updates.cardinality))
       throw new Error(`Invalid cardinality: ${updates.cardinality}`);
+    if (isSubtype(rel) && updates.cardinality !== Cardinality.ONE_TO_ONE)
+      throw new Error("subtype links are always one_to_one");
     rel.cardinality = updates.cardinality;
   }
   for (const key of ["updateConstraint", "deleteConstraint"]) {
@@ -223,7 +276,61 @@ export function updateRelationship(doc, id, updates = {}) {
     rel[key] = updates[key];
   }
   if (updates.name !== undefined) rel.name = updates.name;
+
+  if (updates.subtype !== undefined && updates.kind === undefined) {
+    if (!isSubtype(rel)) throw new Error("subtype can only be set on a subtype link");
+    rel.subtype = normalizeSubtype({ ...rel.subtype, ...updates.subtype }, end);
+  }
+  if (isSubtype(rel) && (updates.subtype !== undefined || updates.kind !== undefined)) {
+    for (const sibling of siblingsOf(refs, rel)) {
+      if (sibling === rel) continue;
+      sibling.subtype = { ...rel.subtype };
+    }
+  }
+
+  if (updates.participation !== undefined) {
+    if (updates.participation === null) delete rel.participation;
+    else if (isSubtype(rel))
+      throw new Error("participation applies to fk links only");
+    else rel.participation = normalizeParticipation(updates.participation);
+  }
   return { id };
+}
+
+export function addSpecialization(doc, data = {}) {
+  const { supertypeTableId, subtypeTableIds, group = "", disjoint = false, total = false, discriminatorFieldId } = data;
+  if (!Array.isArray(subtypeTableIds) || subtypeTableIds.length === 0)
+    throw new Error("subtypeTableIds must be a non-empty array");
+  const superT = findTable(doc, supertypeTableId);
+  const superPk = primaryKeyOf(superT);
+  const ids = [];
+  for (const subId of subtypeTableIds) {
+    const subT = findTable(doc, subId);
+    const subPk = primaryKeyOf(subT);
+    const { id } = addRelationship(doc, {
+      startTableId: subT.id,
+      startFieldId: subPk.id,
+      endTableId: superT.id,
+      endFieldId: superPk.id,
+      kind: RelationshipKind.SUBTYPE,
+      subtype: { group, disjoint, total, discriminatorFieldId },
+    });
+    ids.push(id);
+  }
+  return { ids };
+}
+
+export function updateSpecialization(doc, data = {}) {
+  const { supertypeTableId, group = "", updates = {} } = data;
+  const superT = findTable(doc, supertypeTableId);
+  const refs = relationshipsOf(doc);
+  const probe = { kind: RelationshipKind.SUBTYPE, endTableId: superT.id, subtype: { group } };
+  const siblings = siblingsOf(refs, probe);
+  if (siblings.length === 0)
+    throw new Error(`No specialisation "${group}" on table "${superT.name}"`);
+  const merged = normalizeSubtype({ ...siblings[0].subtype, ...updates }, superT);
+  for (const rel of siblings) rel.subtype = { ...merged };
+  return { ids: siblings.map((r) => r.id) };
 }
 
 export function deleteRelationship(doc, id) {

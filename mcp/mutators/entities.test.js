@@ -11,6 +11,8 @@ import {
   addRelationship,
   updateRelationship,
   deleteRelationship,
+  addSpecialization,
+  updateSpecialization,
   addArea,
   deleteArea,
   addNote,
@@ -161,4 +163,174 @@ test("importDiagram accepts schema-form and wire-form aliases", () => {
 test("invalid color is rejected", () => {
   const doc = emptyDocument();
   assert.throws(() => addTable(doc, { name: "t", color: "red" }), /Invalid color/);
+});
+
+function hierarchy() {
+  const doc = emptyDocument();
+  const user = addTable(doc, { name: "user" });
+  const customer = addTable(doc, { name: "customer" });
+  const seller = addTable(doc, { name: "seller" });
+  const typeField = addField(doc, user.id, { name: "user_type", type: "varchar" });
+  return { doc, user, customer, seller, typeField };
+}
+
+test("addRelationship with kind subtype forces 1:1, cascade and is_a name", () => {
+  const { doc, user, customer } = hierarchy();
+  const r = addRelationship(doc, {
+    startTableId: customer.id,
+    startFieldId: customer.fieldIds[0].id,
+    endTableId: user.id,
+    endFieldId: user.fieldIds[0].id,
+    kind: "subtype",
+    cardinality: "many_to_one",
+    subtype: { group: "role", disjoint: false, total: true },
+  });
+  const rel = doc.references.find((x) => x.id === r.id);
+  assert.equal(rel.kind, "subtype");
+  assert.equal(rel.cardinality, "one_to_one");
+  assert.equal(rel.deleteConstraint, "Cascade");
+  assert.equal(rel.name, "is_a_customer_user");
+  assert.deepEqual(rel.subtype, { group: "role", disjoint: false, total: true });
+});
+
+test("addRelationship rejects a bad kind, a bad discriminator and bad participation", () => {
+  const { doc, user, customer } = hierarchy();
+  const base = {
+    startTableId: customer.id,
+    startFieldId: customer.fieldIds[0].id,
+    endTableId: user.id,
+    endFieldId: user.fieldIds[0].id,
+  };
+  assert.throws(() => addRelationship(doc, { ...base, kind: "weird" }), /Invalid kind/);
+  assert.throws(
+    () =>
+      addRelationship(doc, {
+        ...base,
+        kind: "subtype",
+        subtype: { group: "g", disjoint: true, total: true, discriminatorFieldId: "nope" },
+      }),
+    /Discriminator field not found/,
+  );
+  assert.throws(
+    () => addRelationship(doc, { ...base, participation: { end: "maybe" } }),
+    /Invalid participation/,
+  );
+});
+
+test("addRelationship stores fk participation and updateRelationship can clear it", () => {
+  const { doc, user, customer } = hierarchy();
+  const r = addRelationship(doc, {
+    startTableId: customer.id,
+    startFieldId: customer.fieldIds[0].id,
+    endTableId: user.id,
+    endFieldId: user.fieldIds[0].id,
+    participation: { end: "mandatory" },
+  });
+  assert.deepEqual(doc.references[0].participation, { end: "mandatory" });
+  updateRelationship(doc, r.id, { participation: null });
+  assert.equal(doc.references[0].participation, undefined);
+});
+
+test("updateRelationship syncs subtype constraints across siblings", () => {
+  const { doc, user, customer, seller, typeField } = hierarchy();
+  const a = addRelationship(doc, {
+    startTableId: customer.id,
+    startFieldId: customer.fieldIds[0].id,
+    endTableId: user.id,
+    endFieldId: user.fieldIds[0].id,
+    kind: "subtype",
+    subtype: { group: "role", disjoint: false, total: true },
+  });
+  const b = addRelationship(doc, {
+    startTableId: seller.id,
+    startFieldId: seller.fieldIds[0].id,
+    endTableId: user.id,
+    endFieldId: user.fieldIds[0].id,
+    kind: "subtype",
+    subtype: { group: "role", disjoint: false, total: true },
+  });
+  updateRelationship(doc, a.id, {
+    subtype: { group: "role", disjoint: true, total: false, discriminatorFieldId: typeField.id },
+  });
+  const relB = doc.references.find((x) => x.id === b.id);
+  assert.deepEqual(relB.subtype, {
+    group: "role",
+    disjoint: true,
+    total: false,
+    discriminatorFieldId: typeField.id,
+  });
+  // switching a subtype back to fk drops the subtype block; absent kind means fk (same as every pre-feature relationship), so kind is removed
+  updateRelationship(doc, a.id, { kind: "fk" });
+  const relA = doc.references.find((x) => x.id === a.id);
+  assert.equal(relA.kind, undefined);
+  assert.equal(relA.subtype, undefined);
+  // and a subtype link cannot be given a non-1:1 cardinality
+  assert.throws(
+    () => updateRelationship(doc, b.id, { cardinality: "many_to_one" }),
+    /subtype links are always one_to_one/,
+  );
+});
+
+test("addSpecialization creates one sibling link per subtype table", () => {
+  const { doc, user, customer, seller, typeField } = hierarchy();
+  const res = addSpecialization(doc, {
+    supertypeTableId: user.id,
+    subtypeTableIds: [customer.id, seller.id],
+    group: "role",
+    disjoint: false,
+    total: true,
+    discriminatorFieldId: typeField.id,
+  });
+  assert.equal(res.ids.length, 2);
+  assert.equal(doc.references.length, 2);
+  for (const rel of doc.references) {
+    assert.equal(rel.kind, "subtype");
+    assert.equal(rel.cardinality, "one_to_one");
+    assert.equal(rel.endTableId, user.id);
+    assert.equal(rel.endFieldId, user.fieldIds[0].id);
+    assert.equal(rel.subtype.group, "role");
+    assert.equal(rel.subtype.discriminatorFieldId, typeField.id);
+  }
+  assert.equal(doc.references[0].startTableId, customer.id);
+  assert.equal(doc.references[0].startFieldId, customer.fieldIds[0].id);
+  assert.equal(doc.references[0].name, "is_a_customer_user");
+});
+
+test("addSpecialization requires a primary key on every table", () => {
+  const { doc, user, customer } = hierarchy();
+  updateField(doc, customer.id, customer.fieldIds[0].id, { primary: false });
+  assert.throws(
+    () =>
+      addSpecialization(doc, {
+        supertypeTableId: user.id,
+        subtypeTableIds: [customer.id],
+        group: "role",
+      }),
+    /has no primary key/,
+  );
+});
+
+test("updateSpecialization rewrites every sibling and errors on unknown group", () => {
+  const { doc, user, customer, seller } = hierarchy();
+  addSpecialization(doc, {
+    supertypeTableId: user.id,
+    subtypeTableIds: [customer.id, seller.id],
+    group: "role",
+    disjoint: false,
+    total: true,
+  });
+  const res = updateSpecialization(doc, {
+    supertypeTableId: user.id,
+    group: "role",
+    updates: { disjoint: true },
+  });
+  assert.equal(res.ids.length, 2);
+  for (const rel of doc.references) {
+    assert.equal(rel.subtype.disjoint, true);
+    assert.equal(rel.subtype.total, true);
+  }
+  assert.throws(
+    () => updateSpecialization(doc, { supertypeTableId: user.id, group: "nope", updates: {} }),
+    /No specialisation/,
+  );
 });
