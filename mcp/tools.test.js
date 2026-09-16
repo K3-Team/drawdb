@@ -11,7 +11,7 @@ const EXPECTED = [
   "list_diagrams", "create_diagram", "open_diagram", "get_diagram", "get_table",
   "add_table", "update_table", "delete_table",
   "add_field", "update_field", "delete_field",
-  "add_relationship", "update_relationship", "delete_relationship",
+  "add_relationship", "update_relationship", "delete_relationship", "add_specialization", "update_specialization",
   "add_area", "update_area", "delete_area",
   "add_note", "update_note", "delete_note",
   "add_enum", "update_enum", "delete_enum",
@@ -43,7 +43,7 @@ function collect() {
 test("registers exactly the expected tool surface, each with a schema", () => {
   const registered = collect();
   assert.deepEqual([...registered.keys()].sort(), [...EXPECTED].sort());
-  assert.equal(registered.size, 31);
+  assert.equal(registered.size, 33);
   for (const [name, { config }] of registered) {
     assert.ok(config.inputSchema, `${name} has an inputSchema`);
     assert.equal(typeof config.description, "string");

@@ -30,6 +30,16 @@ const fieldShape = z.object({
   comment: z.string().optional(),
 });
 
+const subtypeShape = z.object({
+  group: z.string().optional(),
+  disjoint: z.boolean().optional(),
+  total: z.boolean().optional(),
+  discriminatorFieldId: z.string().optional(),
+});
+const participationShape = z.object({
+  end: z.enum(["optional", "mandatory"]),
+});
+
 export function registerTools(server, session) {
   const mutate = (fn) => session.requireActive().mutate(fn);
   const readDoc = () => session.requireActive().getState().document;
@@ -137,36 +147,65 @@ export function registerTools(server, session) {
   // ---- relationships ------------------------------------------------------
   tool(
     "add_relationship",
-    "Add a foreign-key relationship between two existing table fields.",
+    "Add a relationship between two existing table fields. kind 'fk' (default) is a foreign key; kind 'subtype' is an EER specialisation link (start = subtype table PK, end = supertype table PK; cardinality forced to one_to_one, delete rule defaults to Cascade). participation.end says whether every parent must have at least one child (fk links only).",
     {
       startTableId: z.string(),
       startFieldId: z.string(),
       endTableId: z.string(),
       endFieldId: z.string(),
       name: z.string().optional(),
+      kind: z.enum(["fk", "subtype"]).optional(),
       cardinality: z
         .enum(["one_to_one", "one_to_many", "many_to_one"])
         .optional(),
       updateConstraint: z.string().optional(),
       deleteConstraint: z.string().optional(),
+      subtype: subtypeShape.optional(),
+      participation: participationShape.optional(),
     },
     (a) => mutate((d) => M.addRelationship(d, a)),
   );
   tool(
     "update_relationship",
-    "Update a relationship's name, cardinality, or constraints.",
+    "Update a relationship's name, kind, cardinality, constraints, subtype block (synced to sibling links) or participation (null clears it).",
     {
       relationshipId: z.string(),
       updates: z.object({
         name: z.string().optional(),
+        kind: z.enum(["fk", "subtype"]).optional(),
         cardinality: z
           .enum(["one_to_one", "one_to_many", "many_to_one"])
           .optional(),
         updateConstraint: z.string().optional(),
         deleteConstraint: z.string().optional(),
+        subtype: subtypeShape.optional(),
+        participation: participationShape.nullable().optional(),
       }),
     },
     (a) => mutate((d) => M.updateRelationship(d, a.relationshipId, a.updates)),
+  );
+  tool(
+    "add_specialization",
+    "Create an EER specialisation: one subtype link from each subtype table's primary key to the supertype's primary key, all sharing the given group and constraints.",
+    {
+      supertypeTableId: z.string(),
+      subtypeTableIds: z.array(z.string()).min(1),
+      group: z.string().optional(),
+      disjoint: z.boolean().optional(),
+      total: z.boolean().optional(),
+      discriminatorFieldId: z.string().optional(),
+    },
+    (a) => mutate((d) => M.addSpecialization(d, a)),
+  );
+  tool(
+    "update_specialization",
+    "Rewrite the constraints (disjoint, total, discriminatorFieldId) of every subtype link in a specialisation group.",
+    {
+      supertypeTableId: z.string(),
+      group: z.string().optional(),
+      updates: subtypeShape,
+    },
+    (a) => mutate((d) => M.updateSpecialization(d, a)),
   );
   tool(
     "delete_relationship",
