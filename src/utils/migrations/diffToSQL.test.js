@@ -107,3 +107,50 @@ describe("generateMigrationSQL preserves attributes on MySQL MODIFY", () => {
     });
   }
 });
+
+describe("generateMigrationSQL ignores EER-only relationship fields", () => {
+  const rel = {
+    id: "r1",
+    name: "fk_posts_users",
+    startTableId: 2,
+    startFieldId: 21,
+    endTableId: 1,
+    endFieldId: 10,
+    cardinality: "many_to_one",
+    updateConstraint: "No action",
+    deleteConstraint: "No action",
+  };
+  const posts = {
+    ...table(2, "posts"),
+    fields: [
+      ...table(2, "posts").fields,
+      {
+        id: 21, name: "author_id", type: "INT", size: "", notNull: false, primary: false,
+        unique: false, increment: false, default: "", check: "", comment: "", values: [],
+      },
+    ],
+  };
+  const from = { tables: [table(1, "users"), posts], relationships: [rel] };
+  const to = {
+    tables: [table(1, "users"), posts],
+    relationships: [
+      { ...rel, kind: "fk", participation: { end: "mandatory" } },
+    ],
+  };
+  for (const prop of ["kind", "participation", "subtype"]) {
+    it(`${prop} change emits no DDL`, () => {
+      const { up, down } = generateMigrationSQL(
+        {
+          [`relationships[id=r1,name=fk_posts_users]#${prop}`]: {
+            from: undefined,
+            to: to.relationships[0][prop],
+          },
+        },
+        DB.POSTGRES,
+        { from, to },
+      );
+      expect(up).toBe("");
+      expect(down).toBe("");
+    });
+  }
+});
