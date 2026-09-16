@@ -334,3 +334,66 @@ test("updateSpecialization rewrites every sibling and errors on unknown group", 
     /No specialisation/,
   );
 });
+
+test("addRelationship rejects participation on a subtype link and validates it on fk links", () => {
+  const { doc, user, customer } = hierarchy();
+  const base = {
+    startTableId: customer.id,
+    startFieldId: customer.fieldIds[0].id,
+    endTableId: user.id,
+    endFieldId: user.fieldIds[0].id,
+  };
+  assert.throws(
+    () => addRelationship(doc, { ...base, kind: "subtype", subtype: { group: "g" }, participation: { end: "optional" } }),
+    /participation applies to fk links only/,
+  );
+  assert.throws(
+    () => addRelationship(doc, { ...base, participation: { end: "maybe" } }),
+    /Invalid participation/,
+  );
+  assert.equal(doc.references.length, 0);
+});
+
+test("addSpecialization writes nothing when a later subtype has no primary key", () => {
+  const { doc, user, customer, seller } = hierarchy();
+  updateField(doc, seller.id, seller.fieldIds[0].id, { primary: false });
+  assert.throws(
+    () => addSpecialization(doc, { supertypeTableId: user.id, subtypeTableIds: [customer.id, seller.id], group: "role" }),
+    /has no primary key/,
+  );
+  assert.equal(doc.references.length, 0);
+  assert.throws(
+    () => addSpecialization(doc, { supertypeTableId: user.id, subtypeTableIds: [user.id], group: "role" }),
+    /own supertype/,
+  );
+  const res = addSpecialization(doc, { supertypeTableId: user.id, subtypeTableIds: [customer.id, customer.id], group: "role" });
+  assert.equal(res.ids.length, 1);
+});
+
+test("switching a link to subtype adopts the existing group's constraints", () => {
+  const { doc, user, customer, seller, typeField } = hierarchy();
+  addSpecialization(doc, {
+    supertypeTableId: user.id, subtypeTableIds: [customer.id], group: "role",
+    disjoint: true, total: true, discriminatorFieldId: typeField.id,
+  });
+  const r = addRelationship(doc, {
+    startTableId: seller.id, startFieldId: seller.fieldIds[0].id,
+    endTableId: user.id, endFieldId: user.fieldIds[0].id, cardinality: "one_to_one",
+  });
+  updateRelationship(doc, r.id, { kind: "subtype", subtype: { group: "role" } });
+  const rel = doc.references.find((x) => x.id === r.id);
+  assert.deepEqual(rel.subtype, { group: "role", disjoint: true, total: true, discriminatorFieldId: typeField.id });
+  const other = doc.references.find((x) => x.id !== r.id);
+  assert.deepEqual(other.subtype, rel.subtype);
+});
+
+test("updateRelationship name change does not require the end table to exist", () => {
+  const { doc, user, customer } = hierarchy();
+  const r = addRelationship(doc, {
+    startTableId: customer.id, startFieldId: customer.fieldIds[0].id,
+    endTableId: user.id, endFieldId: user.fieldIds[0].id,
+  });
+  doc.tables = doc.tables.filter((t) => t.id !== user.id);
+  updateRelationship(doc, r.id, { name: "renamed" });
+  assert.equal(doc.references[0].name, "renamed");
+});

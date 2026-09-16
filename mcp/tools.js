@@ -34,7 +34,7 @@ const subtypeShape = z.object({
   group: z.string().optional(),
   disjoint: z.boolean().optional(),
   total: z.boolean().optional(),
-  discriminatorFieldId: z.string().optional(),
+  discriminatorFieldId: z.string().nullable().optional(),
 });
 const participationShape = z.object({
   end: z.enum(["optional", "mandatory"]),
