@@ -2,14 +2,16 @@ import { Cardinality } from "../../data/constants";
 import { dbToTypes } from "../../data/datatypes";
 import i18n from "../../i18n/i18n";
 import { mermaidToken } from "./escape";
+import { childMin, isSubtype } from "../specialization";
 
 export function jsonToMermaid(obj) {
+  // Legacy: bare cardinality with no participation info.
   function getMermaidRelationship(relationship) {
     switch (relationship) {
       case i18n.t(Cardinality.ONE_TO_ONE):
       case Cardinality.ONE_TO_ONE:
         return "||--||";
-      case i18n.t(Cardinality.MANY_TO_ONE_TO_ONE):
+      case i18n.t(Cardinality.MANY_TO_ONE):
       case Cardinality.MANY_TO_ONE:
         return "}o--||";
       case i18n.t(Cardinality.ONE_TO_MANY):
@@ -18,6 +20,20 @@ export function jsonToMermaid(obj) {
       default:
         return "--";
     }
+  }
+
+  // With participation: left = start (child) table, right = end (parent).
+  // Mermaid marks are look-across, matching badgeTexts: the mark beside the
+  // child says children-per-parent (min from the parent's participation),
+  // the mark beside the parent says parents-per-child (min from NOT NULL).
+  function getMermaidParticipation(r) {
+    const startMin = r.participation.end === "mandatory" ? 1 : 0;
+    const endMin = childMin(r, obj.tables);
+    const startMany = r.cardinality === Cardinality.MANY_TO_ONE;
+    const endMany = r.cardinality === Cardinality.ONE_TO_MANY;
+    const left = startMany ? (startMin ? "}|" : "}o") : startMin ? "||" : "|o";
+    const right = endMany ? (endMin ? "|{" : "o{") : endMin ? "||" : "o|";
+    return `${left}--${right}`;
   }
 
   const mermaidEntities = obj.tables
@@ -45,7 +61,13 @@ export function jsonToMermaid(obj) {
             (t) => t.id === r.startTableId,
           ).name;
           const endTable = obj.tables.find((t) => t.id === r.endTableId).name;
-          return `\t${mermaidToken(startTable)} ${getMermaidRelationship(r.cardinality)} ${mermaidToken(endTable)} : references`;
+          const link = isSubtype(r)
+            ? "||--||"
+            : r.participation
+              ? getMermaidParticipation(r)
+              : getMermaidRelationship(r.cardinality);
+          const label = isSubtype(r) ? "is_a" : "references";
+          return `\t${mermaidToken(startTable)} ${link} ${mermaidToken(endTable)} : ${label}`;
         })
         .join("\n")
     : "";

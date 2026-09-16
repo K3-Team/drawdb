@@ -137,6 +137,34 @@ describe("jsonToMermaid", () => {
   it("does not crash on hostile identifiers", () => {
     expect(typeof jsonToMermaid(hostile())).toBe("string");
   });
+  it("maps participation to mermaid optionality and subtype links to 'is a'", () => {
+    const base = fixture().relationships[0];
+    const out = jsonToMermaid(
+      fixture({
+        relationships: [
+          { ...base, participation: { end: "optional" } },
+          {
+            ...base,
+            id: "r2",
+            name: "is_a_posts_users",
+            startFieldId: "f3",
+            cardinality: "one_to_one",
+            kind: "subtype",
+            subtype: { group: "role", disjoint: true, total: true },
+          },
+        ],
+      }),
+    );
+    // parent optional → child mark }o ; author_id nullable → parent mark o|
+    expect(out).toContain("posts }o--o| users : references");
+    expect(out).toContain("posts ||--|| users : is_a");
+  });
+  it("uses the mandatory marks when participation is mandatory and FK is NOT NULL", () => {
+    const f = fixture();
+    f.tables[1].fields[1].notNull = true;
+    f.relationships[0].participation = { end: "mandatory" };
+    expect(jsonToMermaid(f)).toContain("posts }|--|| users : references");
+  });
 });
 
 describe("jsonToDocumentation", () => {
