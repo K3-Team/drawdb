@@ -269,9 +269,16 @@ export default function RelationshipInfo({ data }) {
       };
       pushEdit(undo, redo, "[kind]");
     } else {
+      const startFieldName = startTable?.fields?.find(
+        (f) => f.id === data.startFieldId,
+      )?.name;
+      const redo = { kind: undefined, subtype: undefined };
+      if (data.name?.startsWith("is_a_")) {
+        redo.name = `fk_${startTableName}_${startFieldName ?? ""}_${endTableName}`;
+      }
       pushEdit(
-        { kind: data.kind, subtype: data.subtype },
-        { kind: undefined, subtype: undefined },
+        { kind: data.kind, subtype: data.subtype, name: data.name },
+        redo,
         "[kind]",
       );
     }
@@ -463,13 +470,32 @@ export default function RelationshipInfo({ data }) {
           <Input
             value={data.subtype?.group ?? ""}
             readonly={layout.readOnly}
-            onChange={(value) => updateRelationship(data.id, { subtype: { ...data.subtype, group: value } })}
+            onChange={(raw) => {
+              const value = raw.replace(/["`\]\n\t;]/g, "");
+              updateRelationship(data.id, {
+                subtype: { ...data.subtype, group: value },
+              });
+            }}
             onFocus={(e) => setEditField({ group: e.target.value })}
             onBlur={(e) => {
-              if (e.target.value === editField.group) return;
-              pushEdit(
-                { subtype: { ...data.subtype, group: editField.group } },
-                { subtype: { ...data.subtype, group: e.target.value } },
+              const group = e.target.value;
+              if (group === editField.group) return;
+              const peer = relationships.find(
+                (r) =>
+                  r.id !== data.id &&
+                  isSubtype(r) &&
+                  String(r.endTableId) === String(data.endTableId) &&
+                  (r.subtype?.group ?? "") === group,
+              );
+              changeSpecialisation(
+                peer
+                  ? {
+                      group,
+                      disjoint: peer.subtype.disjoint,
+                      total: peer.subtype.total,
+                      discriminatorFieldId: peer.subtype.discriminatorFieldId,
+                    }
+                  : { group },
                 "[group]",
               );
             }}
@@ -504,7 +530,9 @@ export default function RelationshipInfo({ data }) {
           <Select
             optionList={[
               { label: t("no_discriminator"), value: "" },
-              ...endFieldOptions,
+              ...endFieldOptions.filter(
+                (o) => !endTable?.fields?.find((f) => f.id === o.value)?.primary,
+              ),
             ]}
             value={data.subtype?.discriminatorFieldId ?? ""}
             className="w-full"
