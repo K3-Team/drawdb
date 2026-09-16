@@ -473,7 +473,7 @@ export default function RelationshipInfo({ data }) {
             onChange={(raw) => {
               // Mirrors IDENTIFIER_PATTERN in src/data/schemas.js.
               // eslint-disable-next-line no-control-regex
-              const value = raw.replace(/[ -"`\];]/g, "");
+              const value = raw.replace(/[\u0000-\u001f\u007f"`\];]/g, "");
               updateRelationship(data.id, {
                 subtype: { ...data.subtype, group: value },
               });
