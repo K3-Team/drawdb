@@ -1,5 +1,6 @@
 export * from "./constants.js";
 export * from "./entities.js";
+export * from "./specialization.js";
 export * from "./diagram.js";
 export * from "./dbml.js";
 export * from "./sql.js";

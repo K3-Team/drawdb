@@ -28,6 +28,16 @@ export const Constraint = {
   SET_DEFAULT: "Set default",
 };
 
+export const RelationshipKind = {
+  FK: "fk",
+  SUBTYPE: "subtype",
+};
+
+export const Participation = {
+  OPTIONAL: "optional",
+  MANDATORY: "mandatory",
+};
+
 export const defaultBlue = "#175e7a";
 export const defaultNoteTheme = "#fcf7ac";
 
@@ -50,3 +60,5 @@ export function capabilities(database) {
 export const VALID_DATABASES = Object.values(DB);
 export const VALID_CARDINALITIES = Object.values(Cardinality);
 export const VALID_CONSTRAINTS = Object.values(Constraint);
+export const VALID_KINDS = Object.values(RelationshipKind);
+export const VALID_PARTICIPATIONS = Object.values(Participation);
