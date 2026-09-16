@@ -17,15 +17,24 @@ import {
   Constraint,
   Action,
   ObjectType,
+  RelationshipKind,
+  Participation,
 } from "../../../data/constants";
 import { useDiagram, useLayout, useUndoRedo } from "../../../hooks";
 import { getRelationshipFields } from "../../../utils/utils";
+import {
+  isSubtype,
+  siblingsOf,
+  childMin,
+  subtypeName,
+} from "../../../utils/specialization";
 import { useTranslation } from "react-i18next";
 import { useMemo, useState } from "react";
 
 export default function RelationshipInfo({ data }) {
   const { setUndoStack, setRedoStack } = useUndoRedo();
-  const { tables, deleteRelationship, updateRelationship } = useDiagram();
+  const { tables, relationships, deleteRelationship, updateRelationship } =
+    useDiagram();
   const { t } = useTranslation();
   const { layout } = useLayout();
   const [editField, setEditField] = useState({});
@@ -198,6 +207,111 @@ export default function RelationshipInfo({ data }) {
     updateRelationship(data.id, { [undoKey]: value });
   };
 
+  const subtype = isSubtype(data);
+  const siblings = useMemo(
+    () => siblingsOf(relationships, data),
+    [relationships, data],
+  );
+  const siblingNames = siblings
+    .filter((r) => r.id !== data.id)
+    .map((r) => r.name)
+    .join(", ");
+  const startPk = startTable?.fields?.find((f) => f.primary);
+  const endPk = endTable?.fields?.find((f) => f.primary);
+
+  const pushEdit = (undo, redo, extra) => {
+    setUndoStack((prev) => [
+      ...prev,
+      {
+        action: Action.EDIT,
+        element: ObjectType.RELATIONSHIP,
+        rid: data.id,
+        undo,
+        redo,
+        message: t("edit_relationship", { refName: data.name, extra }),
+      },
+    ]);
+    setRedoStack([]);
+    updateRelationship(data.id, redo);
+  };
+
+  const changeKind = (value) => {
+    if (layout.readOnly) return;
+    if (value === RelationshipKind.SUBTYPE) {
+      const redo = {
+        kind: RelationshipKind.SUBTYPE,
+        cardinality: Cardinality.ONE_TO_ONE,
+        deleteConstraint:
+          data.deleteConstraint === Constraint.NONE
+            ? Constraint.CASCADE
+            : data.deleteConstraint,
+        participation: undefined,
+        subtype: data.subtype ?? { group: "", disjoint: false, total: false },
+        name: data.name?.startsWith("fk_")
+          ? subtypeName(startTableName, endTableName)
+          : data.name,
+      };
+      if (startPk && endPk) {
+        redo.startFieldId = startPk.id;
+        redo.endFieldId = endPk.id;
+        redo.fields = [{ startFieldId: startPk.id, endFieldId: endPk.id }];
+      }
+      const undo = {
+        kind: data.kind,
+        cardinality: data.cardinality,
+        deleteConstraint: data.deleteConstraint,
+        participation: data.participation,
+        subtype: data.subtype,
+        name: data.name,
+        startFieldId: data.startFieldId,
+        endFieldId: data.endFieldId,
+        fields: pairs.map((p) => ({ ...p })),
+      };
+      pushEdit(undo, redo, "[kind]");
+    } else {
+      pushEdit(
+        { kind: data.kind, subtype: data.subtype },
+        { kind: undefined, subtype: undefined },
+        "[kind]",
+      );
+    }
+  };
+
+  // Rewrites the subtype block on this link and every sibling in one undo entry.
+  const changeSpecialisation = (patch, extra) => {
+    if (layout.readOnly) return;
+    const next = { ...data.subtype, ...patch };
+    const targets = siblings.length ? siblings : [data];
+    const batch = targets.map((r) => ({
+      rid: r.id,
+      undo: { subtype: r.subtype },
+      redo: { subtype: { ...next } },
+    }));
+    setUndoStack((prev) => [
+      ...prev,
+      {
+        action: Action.EDIT,
+        element: ObjectType.RELATIONSHIP,
+        rid: data.id,
+        batch,
+        undo: { subtype: data.subtype },
+        redo: { subtype: { ...next } },
+        message: t("edit_relationship", { refName: data.name, extra }),
+      },
+    ]);
+    setRedoStack([]);
+    for (const item of batch) updateRelationship(item.rid, item.redo);
+  };
+
+  const changeParticipation = (value) => {
+    if (layout.readOnly) return;
+    const redo =
+      value === "default"
+        ? { participation: undefined }
+        : { participation: { end: value } };
+    pushEdit({ participation: data.participation }, redo, "[participation]");
+  };
+
   return (
     <>
       <div className="flex items-center mb-2.5">
@@ -250,77 +364,203 @@ export default function RelationshipInfo({ data }) {
         />
       </div>
 
-      <div className="font-semibold my-1">{t("cardinality")}:</div>
+      <div className="font-semibold my-1">{t("relationship_kind")}:</div>
       <Select
-        optionList={Object.values(Cardinality).map((v) => ({
-          label: t(v),
-          value: v,
-        }))}
-        value={data.cardinality}
-        className="w-full"
-        onChange={changeCardinality}
+        optionList={[
+          { label: t("kind_fk"), value: RelationshipKind.FK },
+          { label: t("kind_subtype"), value: RelationshipKind.SUBTYPE },
+        ]}
+        value={subtype ? RelationshipKind.SUBTYPE : RelationshipKind.FK}
+        className="w-full mb-2"
+        disabled={layout.readOnly}
+        onChange={changeKind}
       />
 
-      {data.cardinality !== Cardinality.ONE_TO_ONE && (
+      {!subtype && (
         <>
-          <div className="text-md font-semibold break-keep mt-2">
-            {t("many_side_label")}:
-          </div>
-          <Input
-            value={data.manyLabel}
-            placeholder={t("label")}
-            onChange={(value) => updateRelationship(data.id, { manyLabel: value })}
-            onFocus={(e) => setEditField({ manyLabel: e.target.value })}
-            readonly={layout.readOnly}
-            onBlur={(e) => {
-              if (e.target.value === editField.manyLabel) return;
-              setUndoStack((prev) => [
-                ...prev,
-                {
-                  action: Action.EDIT,
-                  element: ObjectType.RELATIONSHIP,
-                  component: "self",
-                  rid: data.id,
-                  undo: editField,
-                  redo: { manyLabel: e.target.value },
-                  message: t("edit_relationship", {
-                    refName: e.target.value,
-                    extra: "[manyLabel]",
-                  }),
-                },
-              ]);
-              setRedoStack([]);
-            }}
+          <div className="font-semibold my-1">{t("cardinality")}:</div>
+          <Select
+            optionList={Object.values(Cardinality).map((v) => ({
+              label: t(v),
+              value: v,
+            }))}
+            value={data.cardinality}
+            className="w-full"
+            onChange={changeCardinality}
           />
+
+          {data.cardinality !== Cardinality.ONE_TO_ONE && (
+            <>
+              <div className="text-md font-semibold break-keep mt-2">
+                {t("many_side_label")}:
+              </div>
+              <Input
+                value={data.manyLabel}
+                placeholder={t("label")}
+                onChange={(value) => updateRelationship(data.id, { manyLabel: value })}
+                onFocus={(e) => setEditField({ manyLabel: e.target.value })}
+                readonly={layout.readOnly}
+                onBlur={(e) => {
+                  if (e.target.value === editField.manyLabel) return;
+                  setUndoStack((prev) => [
+                    ...prev,
+                    {
+                      action: Action.EDIT,
+                      element: ObjectType.RELATIONSHIP,
+                      component: "self",
+                      rid: data.id,
+                      undo: editField,
+                      redo: { manyLabel: e.target.value },
+                      message: t("edit_relationship", {
+                        refName: e.target.value,
+                        extra: "[manyLabel]",
+                      }),
+                    },
+                  ]);
+                  setRedoStack([]);
+                }}
+              />
+            </>
+          )}
+
+          <Row gutter={6} className="my-3">
+            <Col span={12}>
+              <div className="font-semibold">{t("on_update")}: </div>
+              <Select
+                optionList={Object.values(Constraint).map((v) => ({
+                  label: v,
+                  value: v,
+                }))}
+                value={data.updateConstraint}
+                className="w-full"
+                onChange={(value) => changeConstraint("update", value)}
+              />
+            </Col>
+            <Col span={12}>
+              <div className="font-semibold">{t("on_delete")}: </div>
+              <Select
+                optionList={Object.values(Constraint).map((v) => ({
+                  label: v,
+                  value: v,
+                }))}
+                value={data.deleteConstraint}
+                className="w-full"
+                onChange={(value) => changeConstraint("delete", value)}
+              />
+            </Col>
+          </Row>
         </>
       )}
 
-      <Row gutter={6} className="my-3">
-        <Col span={12}>
-          <div className="font-semibold">{t("on_update")}: </div>
-          <Select
-            optionList={Object.values(Constraint).map((v) => ({
-              label: v,
-              value: v,
-            }))}
-            value={data.updateConstraint}
-            className="w-full"
-            onChange={(value) => changeConstraint("update", value)}
+      {subtype && (
+        <Card
+          bodyStyle={{ padding: "8px" }}
+          style={{ marginTop: "12px", marginBottom: "12px" }}
+          headerLine={false}
+          title={t("specialisation")}
+        >
+          <div className="font-semibold my-1">{t("specialisation_group")}:</div>
+          <Input
+            value={data.subtype?.group ?? ""}
+            readonly={layout.readOnly}
+            onChange={(value) => updateRelationship(data.id, { subtype: { ...data.subtype, group: value } })}
+            onFocus={(e) => setEditField({ group: e.target.value })}
+            onBlur={(e) => {
+              if (e.target.value === editField.group) return;
+              pushEdit(
+                { subtype: { ...data.subtype, group: editField.group } },
+                { subtype: { ...data.subtype, group: e.target.value } },
+                "[group]",
+              );
+            }}
           />
-        </Col>
-        <Col span={12}>
-          <div className="font-semibold">{t("on_delete")}: </div>
+          <Row gutter={6} className="my-2">
+            <Col span={12}>
+              <Select
+                optionList={[
+                  { label: t("disjoint"), value: "disjoint" },
+                  { label: t("overlapping"), value: "overlapping" },
+                ]}
+                value={data.subtype?.disjoint ? "disjoint" : "overlapping"}
+                className="w-full"
+                disabled={layout.readOnly}
+                onChange={(v) => changeSpecialisation({ disjoint: v === "disjoint" }, "[disjoint]")}
+              />
+            </Col>
+            <Col span={12}>
+              <Select
+                optionList={[
+                  { label: t("total"), value: "total" },
+                  { label: t("partial"), value: "partial" },
+                ]}
+                value={data.subtype?.total ? "total" : "partial"}
+                className="w-full"
+                disabled={layout.readOnly}
+                onChange={(v) => changeSpecialisation({ total: v === "total" }, "[total]")}
+              />
+            </Col>
+          </Row>
+          <div className="font-semibold my-1">{t("discriminator")}:</div>
           <Select
-            optionList={Object.values(Constraint).map((v) => ({
-              label: v,
-              value: v,
-            }))}
-            value={data.deleteConstraint}
+            optionList={[
+              { label: t("no_discriminator"), value: "" },
+              ...endFieldOptions,
+            ]}
+            value={data.subtype?.discriminatorFieldId ?? ""}
             className="w-full"
-            onChange={(value) => changeConstraint("delete", value)}
+            disabled={layout.readOnly}
+            onChange={(v) =>
+              changeSpecialisation(
+                { discriminatorFieldId: v === "" ? undefined : v },
+                "[discriminator]",
+              )
+            }
           />
-        </Col>
-      </Row>
+          {siblingNames && (
+            <div className="text-color opacity-70 mt-2 text-xs">
+              {t("sibling_sync_hint", { names: siblingNames })}
+            </div>
+          )}
+        </Card>
+      )}
+
+      {!subtype && (
+        <Card
+          bodyStyle={{ padding: "8px" }}
+          style={{ marginTop: "12px", marginBottom: "12px" }}
+          headerLine={false}
+          title={t("participation")}
+        >
+          <Row gutter={6}>
+            <Col span={12}>
+              <div className="font-semibold">{startTableName}:</div>
+              <Input
+                value={childMin(data, tables) === 1 ? t("mandatory") : t("optional")}
+                readonly
+                disabled
+              />
+              <div className="text-color opacity-70 mt-1 text-xs">
+                {t("child_participation_hint")}
+              </div>
+            </Col>
+            <Col span={12}>
+              <div className="font-semibold">{endTableName}:</div>
+              <Select
+                optionList={[
+                  { label: t("participation_default"), value: "default" },
+                  { label: t("mandatory"), value: Participation.MANDATORY },
+                  { label: t("optional"), value: Participation.OPTIONAL },
+                ]}
+                value={data.participation?.end ?? "default"}
+                className="w-full"
+                disabled={layout.readOnly}
+                onChange={changeParticipation}
+              />
+            </Col>
+          </Row>
+        </Card>
+      )}
+
       <Card
         bodyStyle={{ padding: "4px" }}
         style={{ marginTop: "12px", marginBottom: "12px" }}
