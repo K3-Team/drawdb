@@ -31,6 +31,16 @@ export const Cardinality = {
   MANY_TO_ONE: "many_to_one",
 };
 
+export const RelationshipKind = {
+  FK: "fk",
+  SUBTYPE: "subtype",
+};
+
+export const Participation = {
+  OPTIONAL: "optional",
+  MANDATORY: "mandatory",
+};
+
 export const Constraint = {
   NONE: "No action",
   RESTRICT: "Restrict",
