@@ -18,6 +18,10 @@
 
 DrawDB is a robust and user-friendly database entity relationship diagram (ERD) editor right in your browser. Build diagrams with a few clicks, export and import SQL scripts, generate migrations, customize your editor, and more without creating an account. See the full set of features on [here](https://drawdb.app/).
 
+## EER specialisation
+
+Relationships can be marked as **subtype** links (supertype/subtype specialisation): the canvas draws a `d`/`o` circle at the supertype end (disjoint/overlapping), `⊂` at the subtype end, and a double line for total participation. Ordinary foreign keys can carry a parent-side participation (mandatory/optional) rendered as `min..max` badges. Physically a subtype link is still a 1:1 foreign key from the subtype's primary key to the supertype's, so SQL export emits class-table inheritance DDL unchanged.
+
 ## Getting Started
 
 ### Local Development

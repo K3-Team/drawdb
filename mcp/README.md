@@ -113,6 +113,11 @@ A session is always: **pick a diagram → edit → (optionally) export.**
        `fields`, a primary-key `id` field is created.
      - `add_field { "tableId": "<id>", "field": { "name": "email", "type": "VARCHAR", "size": 255, "notNull": true } }`
      - `add_relationship { "startTableId": "<posts>", "startFieldId": "<author_id>", "endTableId": "<users>", "endFieldId": "<id>", "cardinality": "many_to_one" }`
+     - `add_relationship { ..., "kind": "subtype", "subtype": { "group": "role", "disjoint": false, "total": true, "discriminatorFieldId": "<user_type>" } }`
+       → an EER specialisation link (start = subtype table PK, end = supertype PK; always 1:1, delete rule Cascade).
+     - `add_specialization { "supertypeTableId": "<user>", "subtypeTableIds": ["<customer>", "<seller>"], "group": "role", "disjoint": false, "total": true }`
+       → one subtype link per subtype table in one write. `update_specialization { "supertypeTableId", "group", "updates" }` rewrites the constraints on every link in the group.
+     - `add_relationship { ..., "participation": { "end": "mandatory" } }` → every parent must have at least one child (parent-side minimum; the child-side minimum is the FK field's `notNull`).
      - `update_table` / `update_field` / `delete_table` … (delete_table also
        drops relationships that referenced it).
    - Annotate: `add_area`, `add_note`. PostgreSQL-only: `add_enum`, `add_type`.
@@ -121,6 +126,7 @@ A session is always: **pick a diagram → edit → (optionally) export.**
 
 4. **Export.**
    - `export_dbml` → DBML text (round-trips with `import_dbml`).
+     DBML has no specialisation syntax: subtype links export as plain `Ref`s followed by a `// subtype: ...` comment, and `import_dbml` recreates them as ordinary foreign keys. Participation is not exported. `import_dbml` replaces the open document by default (when `clearCurrent` is not passed or true), so re-importing exported DBML drops specialisation metadata; use `get_diagram`/`import_diagram` for a lossless round-trip.
    - `export_sql` → DDL for the diagram's engine (throws for `generic` — set a
      concrete database first).
 
