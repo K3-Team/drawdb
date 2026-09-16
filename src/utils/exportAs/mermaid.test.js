@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { jsonToMermaid } from "./mermaid";
+import { fr } from "../../i18n/locales/fr";
 
 const field = (id, name, type, extra = {}) => ({
   id,
@@ -71,6 +72,24 @@ describe("jsonToMermaid", () => {
       }),
     );
     expect(out).toContain("}o--o|");
+  });
+
+  it("folds a legacy translated label without participation, in any locale", () => {
+    const f = fixture();
+    f.relationships = [
+      {
+        id: "r1",
+        name: "fk_posts_author",
+        startTableId: "t2",
+        startFieldId: "f4",
+        endTableId: "t1",
+        endFieldId: "f1",
+        cardinality: fr.translation.many_to_one,
+        updateConstraint: "No action",
+        deleteConstraint: "No action",
+      },
+    ];
+    expect(jsonToMermaid(f)).toContain("}o--||");
   });
 
   it("marks the parent side optional when any column of a composite FK is nullable", () => {

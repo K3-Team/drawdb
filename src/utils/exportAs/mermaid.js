@@ -1,20 +1,17 @@
 import { Cardinality } from "../../data/constants";
 import { dbToTypes } from "../../data/datatypes";
-import i18n from "../../i18n/i18n";
 import { mermaidToken } from "./escape";
 import { childMin, isSubtype, normalizeCardinality } from "../specialization";
 
 export function jsonToMermaid(obj) {
-  // Legacy: bare cardinality with no participation info.
+  // Legacy: bare cardinality with no participation info. normalizeCardinality
+  // folds a label saved in any bundled locale back to the enum form.
   function getMermaidRelationship(relationship) {
-    switch (relationship) {
-      case i18n.t(Cardinality.ONE_TO_ONE):
+    switch (normalizeCardinality({ cardinality: relationship })) {
       case Cardinality.ONE_TO_ONE:
         return "||--||";
-      case i18n.t(Cardinality.MANY_TO_ONE):
       case Cardinality.MANY_TO_ONE:
         return "}o--||";
-      case i18n.t(Cardinality.ONE_TO_MANY):
       case Cardinality.ONE_TO_MANY:
         return "||--o{";
       default:

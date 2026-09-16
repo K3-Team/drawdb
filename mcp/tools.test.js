@@ -65,3 +65,9 @@ test("every handler returns a well-formed result without throwing", async () => 
     }
   }
 });
+
+test("add_relationship accepts the composite field mapping", () => {
+  const { config } = collect().get("add_relationship");
+  assert.ok(config.inputSchema.fields, "fields is part of the input schema");
+  assert.match(config.description, /composite mapping/);
+});

@@ -64,7 +64,11 @@ const legacyLabels = new Map(); // lowercased translated label -> enum value
 for (const { translation } of Object.values(resources)) {
   for (const value of Object.values(Cardinality)) {
     const label = translation?.[value];
-    if (typeof label === "string") legacyLabels.set(label.trim().toLowerCase(), value);
+    if (typeof label !== "string") continue;
+    const key = label.trim().toLowerCase();
+    // First writer wins, and `en` comes first in `resources`, so a label that
+    // collides across locales keeps its English meaning.
+    if (!legacyLabels.has(key)) legacyLabels.set(key, value);
   }
 }
 

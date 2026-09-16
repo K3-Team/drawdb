@@ -181,13 +181,14 @@ export function deleteField(doc, tableId, fieldId) {
 // ---- relationships --------------------------------------------------------
 
 // Two field mappings are the same pairing regardless of the order they were
-// listed in, so compare the sorted id sets of each side.
+// listed in. Key on the pairs themselves, not on each side's ids: sorting the
+// two sides independently would accept a cross-paired mapping (a->y, b->x).
 function sameFieldMapping(a, b) {
   const key = (pairs) =>
-    JSON.stringify([
-      pairs.map((p) => String(p.startFieldId)).sort(),
-      pairs.map((p) => String(p.endFieldId)).sort(),
-    ]);
+    pairs
+      .map((p) => `${p.startFieldId} ${p.endFieldId}`)
+      .sort()
+      .join("|");
   return key(a) === key(b);
 }
 
@@ -197,18 +198,20 @@ function sameFieldMapping(a, b) {
 // propagate the supplied one to every sibling. Shared by addRelationship, the
 // kind switch and the subtype update so the three paths cannot drift.
 function resolveGroupBlock(refs, rel, endTable, suppliedSubtype) {
-  const group = suppliedSubtype?.group ?? rel.subtype?.group ?? "";
+  const current = rel.subtype?.group;
+  const group = suppliedSubtype?.group ?? current ?? "";
+  // Only a link joining a group adopts that group's block; an edit to a link
+  // already in the group is a change to the whole group and propagates.
+  const joining = rel.subtype === undefined || group !== current;
   const siblings = siblingsOf(refs, {
     kind: RelationshipKind.SUBTYPE,
     endTableId: rel.endTableId,
     subtype: { group },
   }).filter((s) => s !== rel);
   const hasFullBlock =
-    suppliedSubtype !== undefined &&
-    suppliedSubtype.disjoint !== undefined &&
-    suppliedSubtype.total !== undefined;
+    suppliedSubtype?.disjoint !== undefined && suppliedSubtype?.total !== undefined;
   const block =
-    siblings.length > 0 && !hasFullBlock
+    joining && siblings.length > 0 && !hasFullBlock
       ? { ...siblings[0].subtype, group }
       : normalizeSubtype({ ...rel.subtype, ...suppliedSubtype, group }, endTable);
   for (const sibling of siblings) sibling.subtype = { ...block };

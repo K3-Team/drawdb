@@ -576,3 +576,56 @@ test("updateSpecialization renaming a group onto another leaves one block for th
     assert.deepEqual(rel.subtype, { group: "role", disjoint: false, total: false });
   }
 });
+
+test("a partial subtype update still propagates to every sibling", () => {
+  const { doc, user, customer, seller, typeField } = hierarchy();
+  const res = addSpecialization(doc, {
+    supertypeTableId: user.id,
+    subtypeTableIds: [customer.id, seller.id],
+    group: "role",
+    disjoint: true,
+    total: true,
+  });
+  const [a, b] = res.ids;
+  const blocks = () => doc.references.map((r) => r.subtype);
+
+  updateRelationship(doc, a, { subtype: { disjoint: false } });
+  for (const block of blocks())
+    assert.deepEqual(block, { group: "role", disjoint: false, total: true });
+
+  updateRelationship(doc, b, { subtype: { total: false } });
+  for (const block of blocks())
+    assert.deepEqual(block, { group: "role", disjoint: false, total: false });
+
+  updateRelationship(doc, a, { subtype: { discriminatorFieldId: typeField.id } });
+  for (const block of blocks())
+    assert.deepEqual(block, {
+      group: "role",
+      disjoint: false,
+      total: false,
+      discriminatorFieldId: typeField.id,
+    });
+});
+
+test("addRelationship refuses a subtype mapping that cross-pairs the primary keys", () => {
+  const { doc, user, customer } = hierarchy();
+  const userTenant = addField(doc, user.id, { name: "tenant_id", type: "int", primary: true });
+  const custTenant = addField(doc, customer.id, { name: "tenant_id", type: "int", primary: true });
+  assert.throws(
+    () =>
+      addRelationship(doc, {
+        startTableId: customer.id,
+        startFieldId: customer.fieldIds[0].id,
+        endTableId: user.id,
+        endFieldId: userTenant.id,
+        fields: [
+          { startFieldId: customer.fieldIds[0].id, endFieldId: userTenant.id },
+          { startFieldId: custTenant.id, endFieldId: user.fieldIds[0].id },
+        ],
+        kind: "subtype",
+        subtype: { group: "role", disjoint: true, total: true },
+      }),
+    /must map the subtype primary key/,
+  );
+  assert.equal(doc.references.length, 0);
+});

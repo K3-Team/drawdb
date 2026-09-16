@@ -147,12 +147,16 @@ export function registerTools(server, session) {
   // ---- relationships ------------------------------------------------------
   tool(
     "add_relationship",
-    "Add a relationship between two existing table fields. kind 'fk' (default) is a foreign key; kind 'subtype' is an EER specialisation link (start = subtype table PK, end = supertype table PK; cardinality forced to one_to_one, delete rule defaults to Cascade). participation.end says whether every parent must have at least one child (fk links only).",
+    "Add a relationship between two existing table fields. kind 'fk' (default) is a foreign key; kind 'subtype' is an EER specialisation link (start = subtype table PK, end = supertype table PK; cardinality forced to one_to_one, delete rule defaults to Cascade). participation.end says whether every parent must have at least one child (fk links only). `fields` gives the full composite mapping (startFieldId/endFieldId must mirror its first pair).",
     {
       startTableId: z.string(),
       startFieldId: z.string(),
       endTableId: z.string(),
       endFieldId: z.string(),
+      fields: z
+        .array(z.object({ startFieldId: z.string(), endFieldId: z.string() }))
+        .min(1)
+        .optional(),
       name: z.string().optional(),
       kind: z.enum(["fk", "subtype"]).optional(),
       cardinality: z
