@@ -6,6 +6,7 @@ import {
   Input,
   Collapse,
   Card,
+  Toast,
 } from "@douyinfe/semi-ui";
 import {
   IconClose,
@@ -27,6 +28,7 @@ import {
   siblingsOf,
   childMin,
   subtypeName,
+  primaryKeyPairs,
 } from "../../../utils/specialization";
 import { useTranslation } from "react-i18next";
 import { useMemo, useState } from "react";
@@ -216,9 +218,6 @@ export default function RelationshipInfo({ data }) {
     .filter((r) => r.id !== data.id)
     .map((r) => r.name)
     .join(", ");
-  const startPk = startTable?.fields?.find((f) => f.primary);
-  const endPk = endTable?.fields?.find((f) => f.primary);
-
   const pushEdit = (undo, redo, extra) => {
     setUndoStack((prev) => [
       ...prev,
@@ -238,6 +237,15 @@ export default function RelationshipInfo({ data }) {
   const changeKind = (value) => {
     if (layout.readOnly) return;
     if (value === RelationshipKind.SUBTYPE) {
+      // A subtype link is a complete PK-to-PK mapping; refuse the switch (and
+      // change nothing) when the two primary keys cannot be paired.
+      let pkPairs;
+      try {
+        pkPairs = primaryKeyPairs(startTable, endTable);
+      } catch (err) {
+        Toast.error(err.message);
+        return;
+      }
       const group = data.subtype?.group ?? "";
       const peer = siblingsOf(relationships, {
         kind: RelationshipKind.SUBTYPE,
@@ -259,11 +267,9 @@ export default function RelationshipInfo({ data }) {
           ? subtypeName(startTableName, endTableName)
           : data.name,
       };
-      if (startPk && endPk) {
-        redo.startFieldId = startPk.id;
-        redo.endFieldId = endPk.id;
-        redo.fields = [{ startFieldId: startPk.id, endFieldId: endPk.id }];
-      }
+      redo.startFieldId = pkPairs[0].startFieldId;
+      redo.endFieldId = pkPairs[0].endFieldId;
+      redo.fields = pkPairs;
       const undo = {
         kind: data.kind,
         cardinality: data.cardinality,

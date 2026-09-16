@@ -6,6 +6,7 @@ import {
   childMin,
   badgeTexts,
   normalizeCardinality,
+  primaryKeyPairs,
 } from "./specialization";
 
 const field = (id, extra = {}) => ({
@@ -136,5 +137,38 @@ describe("badgeTexts", () => {
 describe("normalizeCardinality", () => {
   it("folds a legacy translated label to the enum form", () => {
     expect(normalizeCardinality({ cardinality: "Many to one" })).toBe("many_to_one");
+  });
+});
+
+describe("primaryKeyPairs", () => {
+  const table = (name, fields) => ({ id: name, name, fields });
+  it("pairs the primary keys in order", () => {
+    const sub = table("customer", [
+      field("c_id", { primary: true }),
+      field("c_tenant", { primary: true }),
+      field("c_other"),
+    ]);
+    const sup = table("user", [
+      field("u_id", { primary: true }),
+      field("u_tenant", { primary: true }),
+    ]);
+    expect(primaryKeyPairs(sub, sup)).toEqual([
+      { startFieldId: "c_id", endFieldId: "u_id" },
+      { startFieldId: "c_tenant", endFieldId: "u_tenant" },
+    ]);
+  });
+  it("throws when the primary key widths differ", () => {
+    const sub = table("customer", [field("c_id", { primary: true })]);
+    const sup = table("user", [
+      field("u_id", { primary: true }),
+      field("u_tenant", { primary: true }),
+    ]);
+    expect(() => primaryKeyPairs(sub, sup)).toThrow(/do not match/);
+  });
+  it("throws when either side has no primary key", () => {
+    const pk = table("user", [field("u_id", { primary: true })]);
+    const none = table("customer", [field("c_id")]);
+    expect(() => primaryKeyPairs(none, pk)).toThrow(/has no primary key/);
+    expect(() => primaryKeyPairs(pk, none)).toThrow(/has no primary key/);
   });
 });

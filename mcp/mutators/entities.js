@@ -17,6 +17,7 @@ import {
   normalizeKind,
   normalizeSubtype,
   normalizeParticipation,
+  primaryKeyPairs,
 } from "./specialization.js";
 
 // Pure transforms over the wire document
@@ -179,10 +180,39 @@ export function deleteField(doc, tableId, fieldId) {
 
 // ---- relationships --------------------------------------------------------
 
-function primaryKeyOf(table) {
-  const pk = table.fields.find((f) => f.primary);
-  if (!pk) throw new Error(`Table "${table.name}" has no primary key`);
-  return pk;
+// Two field mappings are the same pairing regardless of the order they were
+// listed in, so compare the sorted id sets of each side.
+function sameFieldMapping(a, b) {
+  const key = (pairs) =>
+    JSON.stringify([
+      pairs.map((p) => String(p.startFieldId)).sort(),
+      pairs.map((p) => String(p.endFieldId)).sort(),
+    ]);
+  return key(a) === key(b);
+}
+
+// Resolves the subtype block for `rel` joining the specialisation group named
+// in `suppliedSubtype` (or keeping its own) and keeps the whole group on one
+// block: adopt the group's block when no full block is supplied, otherwise
+// propagate the supplied one to every sibling. Shared by addRelationship, the
+// kind switch and the subtype update so the three paths cannot drift.
+function resolveGroupBlock(refs, rel, endTable, suppliedSubtype) {
+  const group = suppliedSubtype?.group ?? rel.subtype?.group ?? "";
+  const siblings = siblingsOf(refs, {
+    kind: RelationshipKind.SUBTYPE,
+    endTableId: rel.endTableId,
+    subtype: { group },
+  }).filter((s) => s !== rel);
+  const hasFullBlock =
+    suppliedSubtype !== undefined &&
+    suppliedSubtype.disjoint !== undefined &&
+    suppliedSubtype.total !== undefined;
+  const block =
+    siblings.length > 0 && !hasFullBlock
+      ? { ...siblings[0].subtype, group }
+      : normalizeSubtype({ ...rel.subtype, ...suppliedSubtype, group }, endTable);
+  for (const sibling of siblings) sibling.subtype = { ...block };
+  return block;
 }
 
 export function addRelationship(doc, data = {}) {
@@ -191,6 +221,7 @@ export function addRelationship(doc, data = {}) {
     startFieldId,
     endTableId,
     endFieldId,
+    fields,
     name,
     cardinality = Cardinality.ONE_TO_MANY,
     updateConstraint = Constraint.NONE,
@@ -205,6 +236,22 @@ export function addRelationship(doc, data = {}) {
     throw new Error(`Start field not found: ${startFieldId}`);
   if (!end.fields.some((f) => String(f.id) === String(endFieldId)))
     throw new Error(`End field not found: ${endFieldId}`);
+  // An optional composite mapping; startFieldId/endFieldId mirror its first pair.
+  let pairs;
+  if (fields !== undefined && fields !== null) {
+    if (!Array.isArray(fields) || fields.length === 0)
+      throw new Error("fields must be a non-empty array of { startFieldId, endFieldId }");
+    for (const pair of fields) {
+      if (!start.fields.some((f) => String(f.id) === String(pair?.startFieldId)))
+        throw new Error(`Start field not found: ${pair?.startFieldId}`);
+      if (!end.fields.some((f) => String(f.id) === String(pair?.endFieldId)))
+        throw new Error(`End field not found: ${pair?.endFieldId}`);
+    }
+    pairs = fields.map((p) => ({
+      startFieldId: p.startFieldId,
+      endFieldId: p.endFieldId,
+    }));
+  }
   const kind = normalizeKind(rawKind);
   if (!VALID_CARDINALITIES.includes(cardinality))
     throw new Error(`Invalid cardinality: ${cardinality}`);
@@ -228,6 +275,7 @@ export function addRelationship(doc, data = {}) {
     startFieldId,
     endTableId,
     endFieldId,
+    ...(pairs && { fields: pairs }),
     cardinality: kind === RelationshipKind.SUBTYPE ? Cardinality.ONE_TO_ONE : cardinality,
     updateConstraint,
     deleteConstraint: del,
@@ -238,8 +286,13 @@ export function addRelationship(doc, data = {}) {
     rel.participation = normalizeParticipation(participation);
   }
   if (kind === RelationshipKind.SUBTYPE) {
+    const supplied = pairs ?? [{ startFieldId, endFieldId }];
+    if (!sameFieldMapping(primaryKeyPairs(start, end), supplied))
+      throw new Error(
+        "subtype links must map the subtype primary key to the supertype primary key",
+      );
     rel.kind = kind;
-    rel.subtype = normalizeSubtype(subtype ?? {}, end);
+    rel.subtype = resolveGroupBlock(relationshipsOf(doc), rel, end, subtype ?? {});
   }
   relationshipsOf(doc).push(rel);
   return { id };
@@ -254,27 +307,19 @@ export function updateRelationship(doc, id, updates = {}) {
     const kind = normalizeKind(updates.kind);
     if (kind === RelationshipKind.SUBTYPE) {
       const end = findTable(doc, rel.endTableId);
-      const group = updates.subtype?.group ?? rel.subtype?.group ?? "";
-      const siblingProbe = {
-        kind: RelationshipKind.SUBTYPE,
-        endTableId: rel.endTableId,
-        subtype: { group },
-      };
-      const existingSiblings = siblingsOf(refs, siblingProbe).filter((s) => s !== rel);
-      const hasFullBlock =
-        updates.subtype !== undefined &&
-        updates.subtype.disjoint !== undefined &&
-        updates.subtype.total !== undefined;
+      // A subtype link is a full PK-to-PK mapping, so remap the endpoints;
+      // this throws (leaving the document untouched, the collab client works
+      // on a clone) when either table has no primary key or the widths differ.
+      const pkPairs = primaryKeyPairs(findTable(doc, rel.startTableId), end);
       rel.kind = kind;
       rel.cardinality = Cardinality.ONE_TO_ONE;
       if (rel.deleteConstraint === Constraint.NONE)
         rel.deleteConstraint = Constraint.CASCADE;
       delete rel.participation;
-      if (existingSiblings.length > 0 && !hasFullBlock) {
-        rel.subtype = { ...existingSiblings[0].subtype };
-      } else {
-        rel.subtype = normalizeSubtype(updates.subtype ?? rel.subtype ?? {}, end);
-      }
+      rel.startFieldId = pkPairs[0].startFieldId;
+      rel.endFieldId = pkPairs[0].endFieldId;
+      rel.fields = pkPairs;
+      rel.subtype = resolveGroupBlock(refs, rel, end, updates.subtype);
     } else {
       delete rel.kind;
       delete rel.subtype;
@@ -298,27 +343,7 @@ export function updateRelationship(doc, id, updates = {}) {
   if (updates.subtype !== undefined && updates.kind === undefined) {
     if (!isSubtype(rel)) throw new Error("subtype can only be set on a subtype link");
     const end = findTable(doc, rel.endTableId);
-    const nextGroup = updates.subtype.group;
-    const moving = nextGroup !== undefined && nextGroup !== (rel.subtype?.group ?? "");
-    const hasFullBlock =
-      updates.subtype.disjoint !== undefined && updates.subtype.total !== undefined;
-    const peer = moving
-      ? siblingsOf(refs, {
-          kind: RelationshipKind.SUBTYPE,
-          endTableId: rel.endTableId,
-          subtype: { group: nextGroup },
-        })[0]
-      : undefined;
-    rel.subtype =
-      peer && !hasFullBlock
-        ? { ...peer.subtype }
-        : normalizeSubtype({ ...rel.subtype, ...updates.subtype }, end);
-  }
-  if (isSubtype(rel) && (updates.subtype !== undefined || updates.kind !== undefined)) {
-    for (const sibling of siblingsOf(refs, rel)) {
-      if (sibling === rel) continue;
-      sibling.subtype = { ...rel.subtype };
-    }
+    rel.subtype = resolveGroupBlock(refs, rel, end, updates.subtype);
   }
 
   if (updates.participation !== undefined) {
@@ -335,22 +360,21 @@ export function addSpecialization(doc, data = {}) {
   if (!Array.isArray(subtypeTableIds) || subtypeTableIds.length === 0)
     throw new Error("subtypeTableIds must be a non-empty array");
   const superT = findTable(doc, supertypeTableId);
-  const superPk = primaryKeyOf(superT);
   const uniqueIds = [...new Set(subtypeTableIds.map(String))];
   const resolved = uniqueIds.map((subId) => {
     if (String(subId) === String(supertypeTableId))
       throw new Error("Subtype table cannot be its own supertype");
     const subT = findTable(doc, subId);
-    const subPk = primaryKeyOf(subT);
-    return { subT, subPk };
+    return { subT, pairs: primaryKeyPairs(subT, superT) };
   });
   const ids = [];
-  for (const { subT, subPk } of resolved) {
+  for (const { subT, pairs } of resolved) {
     const { id } = addRelationship(doc, {
       startTableId: subT.id,
-      startFieldId: subPk.id,
+      startFieldId: pairs[0].startFieldId,
       endTableId: superT.id,
-      endFieldId: superPk.id,
+      endFieldId: pairs[0].endFieldId,
+      fields: pairs,
       kind: RelationshipKind.SUBTYPE,
       subtype: { group, disjoint, total, discriminatorFieldId },
     });
@@ -368,8 +392,21 @@ export function updateSpecialization(doc, data = {}) {
   if (siblings.length === 0)
     throw new Error(`No specialisation "${group}" on table "${superT.name}"`);
   const merged = normalizeSubtype({ ...siblings[0].subtype, ...updates }, superT);
-  for (const rel of siblings) rel.subtype = { ...merged };
-  return { ids: siblings.map((r) => r.id) };
+  // Renaming onto a group that already has members merges the two: the block
+  // has to cover the union, or that group would end up with two blocks.
+  const targets =
+    merged.group === group
+      ? siblings
+      : [
+          ...siblings,
+          ...siblingsOf(refs, {
+            kind: RelationshipKind.SUBTYPE,
+            endTableId: superT.id,
+            subtype: { group: merged.group },
+          }),
+        ];
+  for (const rel of targets) rel.subtype = { ...merged };
+  return { ids: targets.map((r) => r.id) };
 }
 
 export function deleteRelationship(doc, id) {

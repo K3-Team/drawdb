@@ -21,6 +21,21 @@ export function siblingsOf(relationships, rel) {
   );
 }
 
+// Pairs the subtype table's primary-key fields with the supertype's, in order.
+// Throws when either side has no PK or the counts differ, so a subtype link is
+// always a complete PK-to-PK mapping (class-table inheritance).
+export function primaryKeyPairs(subtypeTable, supertypeTable) {
+  const subPk = (subtypeTable?.fields ?? []).filter((f) => f.primary);
+  const superPk = (supertypeTable?.fields ?? []).filter((f) => f.primary);
+  if (subPk.length === 0) throw new Error(`Table "${subtypeTable?.name}" has no primary key`);
+  if (superPk.length === 0) throw new Error(`Table "${supertypeTable?.name}" has no primary key`);
+  if (subPk.length !== superPk.length)
+    throw new Error(
+      `Primary keys of "${subtypeTable.name}" (${subPk.length} columns) and "${supertypeTable.name}" (${superPk.length} columns) do not match`,
+    );
+  return subPk.map((f, i) => ({ startFieldId: f.id, endFieldId: superPk[i].id }));
+}
+
 export function subtypeName(subtypeTableName, supertypeTableName) {
   return `is_a_${subtypeTableName}_${supertypeTableName}`;
 }

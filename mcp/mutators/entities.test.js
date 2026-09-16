@@ -441,3 +441,138 @@ test("updateRelationship name change does not require the end table to exist", (
   updateRelationship(doc, r.id, { name: "renamed" });
   assert.equal(doc.references[0].name, "renamed");
 });
+
+test("addSpecialization pairs the whole composite primary key", () => {
+  const { doc, user, customer } = hierarchy();
+  const userTenant = addField(doc, user.id, { name: "tenant_id", type: "int", primary: true });
+  const custTenant = addField(doc, customer.id, { name: "tenant_id", type: "int", primary: true });
+  const res = addSpecialization(doc, {
+    supertypeTableId: user.id,
+    subtypeTableIds: [customer.id],
+    group: "role",
+  });
+  const rel = doc.references.find((x) => x.id === res.ids[0]);
+  assert.deepEqual(rel.fields, [
+    { startFieldId: customer.fieldIds[0].id, endFieldId: user.fieldIds[0].id },
+    { startFieldId: custTenant.id, endFieldId: userTenant.id },
+  ]);
+  assert.equal(rel.startFieldId, customer.fieldIds[0].id);
+  assert.equal(rel.endFieldId, user.fieldIds[0].id);
+});
+
+test("addSpecialization refuses a primary key of a different width and writes nothing", () => {
+  const { doc, user, customer } = hierarchy();
+  addField(doc, user.id, { name: "tenant_id", type: "int", primary: true });
+  assert.throws(
+    () =>
+      addSpecialization(doc, {
+        supertypeTableId: user.id,
+        subtypeTableIds: [customer.id],
+        group: "role",
+      }),
+    /do not match/,
+  );
+  assert.equal(doc.references.length, 0);
+});
+
+test("switching a link to subtype remaps its endpoints onto the primary keys", () => {
+  const { doc, user, customer } = hierarchy();
+  const userTenant = addField(doc, user.id, { name: "tenant_id", type: "int", primary: true });
+  const custTenant = addField(doc, customer.id, { name: "tenant_id", type: "int", primary: true });
+  const loose = addField(doc, customer.id, { name: "owner_id", type: "int" });
+  const r = addRelationship(doc, {
+    startTableId: customer.id,
+    startFieldId: loose.id,
+    endTableId: user.id,
+    endFieldId: user.fieldIds[0].id,
+  });
+  updateRelationship(doc, r.id, { kind: "subtype", subtype: { group: "role" } });
+  const rel = doc.references.find((x) => x.id === r.id);
+  assert.equal(rel.startFieldId, customer.fieldIds[0].id);
+  assert.equal(rel.endFieldId, user.fieldIds[0].id);
+  assert.deepEqual(rel.fields, [
+    { startFieldId: customer.fieldIds[0].id, endFieldId: user.fieldIds[0].id },
+    { startFieldId: custTenant.id, endFieldId: userTenant.id },
+  ]);
+});
+
+test("addRelationship refuses a subtype link that is not a primary-key mapping", () => {
+  const { doc, user, customer } = hierarchy();
+  const loose = addField(doc, customer.id, { name: "owner_id", type: "int" });
+  assert.throws(
+    () =>
+      addRelationship(doc, {
+        startTableId: customer.id,
+        startFieldId: loose.id,
+        endTableId: user.id,
+        endFieldId: user.fieldIds[0].id,
+        kind: "subtype",
+        subtype: { group: "role", disjoint: true, total: true },
+      }),
+    /subtype links must map/,
+  );
+  assert.equal(doc.references.length, 0);
+});
+
+test("addRelationship joining an existing group adopts or syncs the group block", () => {
+  const { doc, user, customer, seller } = hierarchy();
+  addSpecialization(doc, {
+    supertypeTableId: user.id,
+    subtypeTableIds: [customer.id],
+    group: "role",
+    disjoint: true,
+    total: true,
+  });
+  const adopted = addRelationship(doc, {
+    startTableId: seller.id,
+    startFieldId: seller.fieldIds[0].id,
+    endTableId: user.id,
+    endFieldId: user.fieldIds[0].id,
+    kind: "subtype",
+    subtype: { group: "role" },
+  });
+  const adoptedRel = doc.references.find((x) => x.id === adopted.id);
+  assert.deepEqual(adoptedRel.subtype, { group: "role", disjoint: true, total: true });
+
+  const third = addTable(doc, { name: "admin" });
+  const synced = addRelationship(doc, {
+    startTableId: third.id,
+    startFieldId: third.fieldIds[0].id,
+    endTableId: user.id,
+    endFieldId: user.fieldIds[0].id,
+    kind: "subtype",
+    subtype: { group: "role", disjoint: false, total: false },
+  });
+  const syncedRel = doc.references.find((x) => x.id === synced.id);
+  assert.deepEqual(syncedRel.subtype, { group: "role", disjoint: false, total: false });
+  for (const rel of doc.references) {
+    assert.deepEqual(rel.subtype, { group: "role", disjoint: false, total: false });
+  }
+});
+
+test("updateSpecialization renaming a group onto another leaves one block for the union", () => {
+  const { doc, user, customer, seller } = hierarchy();
+  addSpecialization(doc, {
+    supertypeTableId: user.id,
+    subtypeTableIds: [customer.id],
+    group: "role",
+    disjoint: true,
+    total: true,
+  });
+  addSpecialization(doc, {
+    supertypeTableId: user.id,
+    subtypeTableIds: [seller.id],
+    group: "other",
+    disjoint: false,
+    total: false,
+  });
+  const res = updateSpecialization(doc, {
+    supertypeTableId: user.id,
+    group: "other",
+    updates: { group: "role" },
+  });
+  assert.equal(res.ids.length, 2);
+  for (const rel of doc.references) {
+    assert.deepEqual(rel.subtype, { group: "role", disjoint: false, total: false });
+  }
+});
