@@ -19,7 +19,7 @@ import { createApplication } from "../server/index.js";
 // Requires a built dist/ and a Chromium binary (CHROMIUM env or `chromium` on
 // PATH). Run via `npm run test:e2e`.
 
-/* global process */
+/* global process, Buffer */
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DIST = path.resolve(__dirname, "..", "dist");
@@ -82,7 +82,9 @@ function cdp(ws) {
   return { send, events };
 }
 
-test("the built SPA boots in a real browser without uncaught errors", async (t) => {
+// Boots the built app (steps 1-3): serve the SPA, launch headless Chromium
+// pointed at it, and attach a CDP client with Runtime/Page enabled.
+async function bootApp(t) {
   assert.ok(fs.existsSync(path.join(DIST, "index.html")), "dist/ must be built first");
 
   // 1. Serve the built app (dev-open; the static SPA needs no token).
@@ -138,6 +140,12 @@ test("the built SPA boots in a real browser without uncaught errors", async (t) 
   await client.send("Runtime.enable");
   await client.send("Page.enable");
 
+  return { app, appUrl, appPort, client };
+}
+
+test("the built SPA boots in a real browser without uncaught errors", async (t) => {
+  const { appUrl, client } = await bootApp(t);
+
   // 4. Wait for React to mount into #root.
   const mounted = await waitFor(
     async () => {
@@ -183,4 +191,64 @@ test("the built SPA boots in a real browser without uncaught errors", async (t) 
     .map((e) => e.params.exceptionDetails?.exception?.description || e.params.exceptionDetails?.text)
     .filter(Boolean);
   assert.deepEqual(exceptions, [], `uncaught page exceptions:\n${exceptions.join("\n")}`);
+});
+
+test("a seeded subtype relationship renders the EER glyphs", async (t) => {
+  const { appUrl, appPort, client } = await bootApp(t);
+
+  const field = (id, name, extra = {}) => ({
+    id, name, type: "INT", default: "", check: "", primary: false, unique: false,
+    notNull: false, increment: false, comment: "", ...extra,
+  });
+  const table = (id, name, x, y, fields) => ({
+    id, name, x, y, comment: "", color: "#175e7a", indices: [], fields,
+  });
+  const document = {
+    database: "generic",
+    tables: [
+      table("user", "user", 100, 100, [field("u_id", "id", { primary: true, notNull: true })]),
+      table("customer", "customer", 500, 100, [field("c_id", "id", { primary: true, notNull: true })]),
+    ],
+    references: [
+      {
+        id: "r1", name: "is_a_customer_user",
+        startTableId: "customer", startFieldId: "c_id",
+        endTableId: "user", endFieldId: "u_id",
+        cardinality: "one_to_one", updateConstraint: "No action", deleteConstraint: "Cascade",
+        kind: "subtype", subtype: { group: "role", disjoint: true, total: true },
+      },
+    ],
+    notes: [], areas: [], pan: { x: 0, y: 0 }, zoom: 1,
+  };
+  const created = await new Promise((resolve, reject) => {
+    const body = JSON.stringify({ name: "eer", document });
+    const req = http.request(
+      { host: "127.0.0.1", port: appPort, path: "/api/diagrams", method: "POST",
+        headers: { "Content-Type": "application/json", "Content-Length": Buffer.byteLength(body) } },
+      (res) => { let b = ""; res.on("data", (c) => (b += c)); res.on("end", () => resolve(JSON.parse(b))); },
+    );
+    req.on("error", reject);
+    req.end(body);
+  });
+
+  await client.send("Page.navigate", { url: `${appUrl}editor/diagrams/${created.id}` });
+  const glyphs = await waitFor(
+    async () => {
+      const { result } = await client.send("Runtime.evaluate", {
+        expression: `(() => {
+          const texts = [...document.querySelectorAll('svg text')].map(t => t.textContent.trim());
+          return JSON.stringify({
+            d: texts.includes('d'),
+            sub: texts.includes('⊂'),
+            total: !!document.querySelector('.relationship-path--total-under'),
+          });
+        })()`,
+        returnByValue: true,
+      });
+      const s = JSON.parse(result.value);
+      return s.d && s.sub && s.total ? s : null;
+    },
+    { label: "EER glyphs on canvas", timeout: 20000 },
+  );
+  assert.ok(glyphs.d && glyphs.sub && glyphs.total);
 });
