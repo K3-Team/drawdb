@@ -396,6 +396,41 @@ test("switching a link to subtype adopts the existing group's constraints", () =
   assert.deepEqual(other.subtype, rel.subtype);
 });
 
+test("updateRelationship adopts the destination group's block when moving a link over MCP", () => {
+  const { doc, user, customer, seller } = hierarchy();
+  addSpecialization(doc, {
+    supertypeTableId: user.id,
+    subtypeTableIds: [customer.id],
+    group: "role",
+    disjoint: true,
+    total: true,
+  });
+  const sellerLink = addRelationship(doc, {
+    startTableId: seller.id,
+    startFieldId: seller.fieldIds[0].id,
+    endTableId: user.id,
+    endFieldId: user.fieldIds[0].id,
+    kind: "subtype",
+    subtype: { group: "other", disjoint: false, total: false },
+  });
+
+  updateRelationship(doc, sellerLink.id, { subtype: { group: "role" } });
+  const movedToRole = doc.references.find((x) => x.id === sellerLink.id);
+  assert.deepEqual(movedToRole.subtype, { group: "role", disjoint: true, total: true });
+  const customerLink = doc.references.find(
+    (x) => x.id !== sellerLink.id && x.startTableId === customer.id,
+  );
+  assert.deepEqual(customerLink.subtype, { group: "role", disjoint: true, total: true });
+
+  updateRelationship(doc, sellerLink.id, {
+    subtype: { group: "third", disjoint: false, total: true },
+  });
+  const movedToThird = doc.references.find((x) => x.id === sellerLink.id);
+  assert.deepEqual(movedToThird.subtype, { group: "third", disjoint: false, total: true });
+  const stillRole = doc.references.find((x) => x.id === customerLink.id);
+  assert.deepEqual(stillRole.subtype, { group: "role", disjoint: true, total: true });
+});
+
 test("updateRelationship name change does not require the end table to exist", () => {
   const { doc, user, customer } = hierarchy();
   const r = addRelationship(doc, {

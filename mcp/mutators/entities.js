@@ -298,7 +298,21 @@ export function updateRelationship(doc, id, updates = {}) {
   if (updates.subtype !== undefined && updates.kind === undefined) {
     if (!isSubtype(rel)) throw new Error("subtype can only be set on a subtype link");
     const end = findTable(doc, rel.endTableId);
-    rel.subtype = normalizeSubtype({ ...rel.subtype, ...updates.subtype }, end);
+    const nextGroup = updates.subtype.group;
+    const moving = nextGroup !== undefined && nextGroup !== (rel.subtype?.group ?? "");
+    const hasFullBlock =
+      updates.subtype.disjoint !== undefined && updates.subtype.total !== undefined;
+    const peer = moving
+      ? siblingsOf(refs, {
+          kind: RelationshipKind.SUBTYPE,
+          endTableId: rel.endTableId,
+          subtype: { group: nextGroup },
+        })[0]
+      : undefined;
+    rel.subtype =
+      peer && !hasFullBlock
+        ? { ...peer.subtype }
+        : normalizeSubtype({ ...rel.subtype, ...updates.subtype }, end);
   }
   if (isSubtype(rel) && (updates.subtype !== undefined || updates.kind !== undefined)) {
     for (const sibling of siblingsOf(refs, rel)) {

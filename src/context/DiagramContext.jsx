@@ -324,6 +324,12 @@ export default function DiagramContextProvider({ children }) {
       prev.map((t) => (t.id === id ? { ...t, ...updatedValues } : t)),
     );
     if (shouldEmit()) {
+      // NOTE: relationship deltas are currently dropped by CollabContext (it only
+      // relays table-move previews). If this channel is ever opened: (1) callers
+      // clear keys with `undefined`, which JSON drops, so a clearing patch would
+      // arrive empty — send an explicit null or a "clear" list instead; (2) the
+      // side panel's sibling sync issues one update per link — group them into a
+      // single delta so peers never observe a half-synced specialisation.
       emitDelta({
         target: "relationship",
         action: "update",

@@ -238,6 +238,12 @@ export default function RelationshipInfo({ data }) {
   const changeKind = (value) => {
     if (layout.readOnly) return;
     if (value === RelationshipKind.SUBTYPE) {
+      const group = data.subtype?.group ?? "";
+      const peer = siblingsOf(relationships, {
+        kind: RelationshipKind.SUBTYPE,
+        endTableId: data.endTableId,
+        subtype: { group },
+      }).find((r) => r.id !== data.id);
       const redo = {
         kind: RelationshipKind.SUBTYPE,
         cardinality: Cardinality.ONE_TO_ONE,
@@ -246,7 +252,9 @@ export default function RelationshipInfo({ data }) {
             ? Constraint.CASCADE
             : data.deleteConstraint,
         participation: undefined,
-        subtype: data.subtype ?? { group: "", disjoint: false, total: false },
+        subtype:
+          data.subtype ??
+          (peer ? { ...peer.subtype } : { group: "", disjoint: false, total: false }),
         name: data.name?.startsWith("fk_")
           ? subtypeName(startTableName, endTableName)
           : data.name,
@@ -288,7 +296,7 @@ export default function RelationshipInfo({ data }) {
   const changeSpecialisation = (patch, extra, undoOverrides = {}) => {
     if (layout.readOnly) return;
     const next = { ...data.subtype, ...patch };
-    const targets = siblings.length ? siblings : [data];
+    const targets = siblings;
     const batch = targets.map((r) => ({
       rid: r.id,
       undo: undoOverrides[r.id] ?? { subtype: r.subtype },
@@ -596,11 +604,12 @@ export default function RelationshipInfo({ data }) {
         </Card>
       )}
 
-      <Card
-        bodyStyle={{ padding: "4px" }}
-        style={{ marginTop: "12px", marginBottom: "12px" }}
-        headerLine={false}
-      >
+      {!subtype && (
+        <Card
+          bodyStyle={{ padding: "4px" }}
+          style={{ marginTop: "12px", marginBottom: "12px" }}
+          headerLine={false}
+        >
         <Collapse keepDOM={false} lazyRender accordion>
           <Collapse.Panel header={t("composite_key")} itemKey="1">
             <div className="pb-4">
@@ -660,7 +669,8 @@ export default function RelationshipInfo({ data }) {
             </div>
           </Collapse.Panel>
         </Collapse>
-      </Card>
+        </Card>
+      )}
 
       <Button
         block
