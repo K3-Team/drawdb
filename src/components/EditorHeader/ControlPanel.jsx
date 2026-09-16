@@ -314,7 +314,11 @@ export default function ControlPanel({
           updateTable(a.tid, a.undo);
         }
       } else if (a.element === ObjectType.RELATIONSHIP) {
-        updateRelationship(a.rid, a.undo);
+        if (Array.isArray(a.batch)) {
+          for (const item of a.batch) updateRelationship(item.rid, item.undo);
+        } else {
+          updateRelationship(a.rid, a.undo);
+        }
       } else if (a.element === ObjectType.TYPE) {
         if (a.component === "field_add") {
           const type = types.find((t, i) =>
@@ -533,7 +537,11 @@ export default function ControlPanel({
           updateTable(a.tid, a.redo, false);
         }
       } else if (a.element === ObjectType.RELATIONSHIP) {
-        updateRelationship(a.rid, a.redo);
+        if (Array.isArray(a.batch)) {
+          for (const item of a.batch) updateRelationship(item.rid, item.redo);
+        } else {
+          updateRelationship(a.rid, a.redo);
+        }
       } else if (a.element === ObjectType.TYPE) {
         if (a.component === "field_add") {
           const type = types.find((t, i) =>
