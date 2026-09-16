@@ -3,6 +3,7 @@ import { dbToTypes } from "../../data/datatypes";
 import i18n from "../../i18n/i18n";
 
 import { isFunction, isKeyword, getRelationshipFields } from "../utils";
+import { isSubtype } from "../specialization";
 import {
   dbmlString,
   dbmlSetting,
@@ -119,6 +120,19 @@ function processType(type) {
   return dbmlType(type);
 }
 
+// DBML has no specialisation syntax; record it as a comment for readers.
+export function subtypeComment(rel, supertypeFields) {
+  if (!isSubtype(rel)) return "";
+  const s = rel.subtype ?? {};
+  const disc = supertypeFields?.find(
+    (f) => String(f.id) === String(s.discriminatorFieldId),
+  )?.name;
+  return (
+    `\n// subtype: group=${s.group ?? ""} ${s.disjoint ? "disjoint" : "overlapping"} ` +
+    `${s.total ? "total" : "partial"}${disc ? ` discriminator=${disc}` : ""}`
+  );
+}
+
 export function toDBML(diagram) {
   const columnRef = (tableName, fieldNames) => {
     const cols = fieldNames.map((n) => quoteIdentifier(n));
@@ -141,7 +155,8 @@ export function toDBML(diagram) {
       (p) => endTableFields.find((f) => f.id === p.endFieldId)?.name,
     );
 
-    return `Ref ${quoteIdentifier(rel.name)} {\n\t${columnRef(startTableName, startFieldNames)} ${cardinality(rel)} ${columnRef(endTableName, endFieldNames)} [ delete: ${dbmlSetting(String(rel.deleteConstraint ?? "").toLowerCase())}, update: ${dbmlSetting(String(rel.updateConstraint ?? "").toLowerCase())} ]\n}`;
+    const ref = `Ref ${quoteIdentifier(rel.name)} {\n\t${columnRef(startTableName, startFieldNames)} ${cardinality(rel)} ${columnRef(endTableName, endFieldNames)} [ delete: ${dbmlSetting(String(rel.deleteConstraint ?? "").toLowerCase())}, update: ${dbmlSetting(String(rel.updateConstraint ?? "").toLowerCase())} ]\n}`;
+    return ref + subtypeComment(rel, endTableFields);
   };
 
   let enumDefinitions = "";

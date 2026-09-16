@@ -1,6 +1,7 @@
 import { Parser } from "@dbml/core";
 import { nanoid } from "nanoid";
 import { Cardinality, Constraint, capabilities, defaultBlue } from "./constants.js";
+import { isSubtype } from "./specialization.js";
 
 // DBML import/export for the MCP service.
 //
@@ -183,6 +184,13 @@ export function exportDbml(doc) {
     lines.push(
       `Ref: ${ident(st.name)}.${ident(sf)} ${op} ${ident(et.name)}.${ident(ef)}`,
     );
+    if (isSubtype(r)) {
+      const s = r.subtype ?? {};
+      const disc = fieldName(et, s.discriminatorFieldId);
+      lines.push(
+        `// subtype: group=${s.group ?? ""} ${s.disjoint ? "disjoint" : "overlapping"} ${s.total ? "total" : "partial"}${disc ? ` discriminator=${disc}` : ""}`,
+      );
+    }
   }
 
   return lines.join("\n").trim() + "\n";

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { emptyDocument } from "./index.js";
+import { emptyDocument, addTable, addSpecialization } from "./index.js";
 import { applyDbml, exportDbml } from "./dbml.js";
 
 const SAMPLE = `
@@ -92,4 +92,19 @@ test("exportDbml quotes identifiers that need it", () => {
   ];
   const dbml = exportDbml(doc);
   assert.match(dbml, /Table "order items" \{/);
+});
+
+test("exportDbml writes a subtype comment for subtype refs", () => {
+  const doc = emptyDocument("generic");
+  const u = addTable(doc, { name: "user" });
+  const c = addTable(doc, { name: "customer" });
+  addSpecialization(doc, {
+    supertypeTableId: u.id,
+    subtypeTableIds: [c.id],
+    group: "role",
+    disjoint: false,
+    total: true,
+  });
+  const out = exportDbml(doc);
+  assert.match(out, /Ref: customer\.id - user\.id\n\/\/ subtype: group=role overlapping total/);
 });

@@ -102,6 +102,29 @@ describe("toDBML", () => {
     // A raw backtick-delimited break must not survive verbatim.
     expect(out).not.toContain('ev"il`;\n drop');
   });
+  it("emits a subtype comment after a subtype Ref", () => {
+    const out = toDBML(
+      fixture({
+        relationships: [
+          {
+            id: "r2",
+            name: "is_a_posts_users",
+            startTableId: "t2",
+            startFieldId: "f3",
+            endTableId: "t1",
+            endFieldId: "f1",
+            cardinality: "one_to_one",
+            updateConstraint: "No action",
+            deleteConstraint: "Cascade",
+            kind: "subtype",
+            subtype: { group: "role", disjoint: true, total: false, discriminatorFieldId: "f2" },
+          },
+        ],
+      }),
+    );
+    expect(out).toContain("// subtype: group=role disjoint partial discriminator=email");
+    expect(out).toMatch(/Ref "?is_a_posts_users"?/);
+  });
 });
 
 describe("jsonToMermaid", () => {
