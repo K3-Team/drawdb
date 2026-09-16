@@ -1,4 +1,6 @@
 import { Cardinality, Participation, RelationshipKind } from "../data/constants";
+import { getRelationshipFields } from "./utils";
+import { resources } from "../i18n/i18n";
 
 // A relationship is a subtype link only when explicitly marked; absent kind
 // means an ordinary foreign key (all pre-feature documents).
@@ -39,23 +41,38 @@ export function subtypeName(subtypeTableName, supertypeTableName) {
 }
 
 // Minimum participation of the child (start/FK-holder) side, derived from the
-// FK field's NOT NULL. Unknown field → 1 (the conservative, DDL-neutral answer).
+// NOT NULL of every column of the FK: the link is mandatory only when the whole
+// mapping is. Unknown field → 1 (the conservative, DDL-neutral answer).
 export function childMin(rel, tables) {
   const table = tables.find((t) => String(t.id) === String(rel.startTableId));
-  const field = table?.fields?.find(
-    (f) => String(f.id) === String(rel.startFieldId),
-  );
-  if (!field) return 1;
-  return field.notNull || field.primary ? 1 : 0;
+  return getRelationshipFields(rel).every((pair) => {
+    const field = table?.fields?.find(
+      (f) => String(f.id) === String(pair.startFieldId),
+    );
+    if (!field) return true;
+    return field.notNull || field.primary;
+  })
+    ? 1
+    : 0;
 }
 
-// Old documents may carry a translated cardinality label ("Many to one");
-// fold it back to the enum form so legacy diagrams keep their n badge.
+// Old documents may carry a translated cardinality label ("Many to one",
+// "Plusieurs a un"); fold it back to the enum form so legacy diagrams keep
+// their n badge whatever language they were saved in. Built once from every
+// bundled locale.
+const legacyLabels = new Map(); // lowercased translated label -> enum value
+for (const { translation } of Object.values(resources)) {
+  for (const value of Object.values(Cardinality)) {
+    const label = translation?.[value];
+    if (typeof label === "string") legacyLabels.set(label.trim().toLowerCase(), value);
+  }
+}
+
 export function normalizeCardinality(rel) {
-  return String(rel.cardinality ?? "")
+  const raw = String(rel.cardinality ?? "")
     .trim()
-    .toLowerCase()
-    .replace(/\s+/g, "_");
+    .toLowerCase();
+  return legacyLabels.get(raw) ?? raw.replace(/\s+/g, "_");
 }
 
 // Text for the start (child) and end (parent) badges. Look-across convention (same as the legacy 1 / n badges): each badge describes how many rows of the adjacent table exist per row of the table at the far end.

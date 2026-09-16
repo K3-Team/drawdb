@@ -72,4 +72,30 @@ describe("jsonToMermaid", () => {
     );
     expect(out).toContain("}o--o|");
   });
+
+  it("marks the parent side optional when any column of a composite FK is nullable", () => {
+    const f = fixture();
+    f.tables[1].fields.push(
+      field("f5", "tenant_id", "INT", { notNull: true }),
+    );
+    f.relationships = [
+      {
+        id: "r1",
+        name: "fk_posts_author",
+        startTableId: "t2",
+        startFieldId: "f5",
+        endTableId: "t1",
+        endFieldId: "f1",
+        fields: [
+          { startFieldId: "f5", endFieldId: "f1" },
+          { startFieldId: "f4", endFieldId: "f1" },
+        ],
+        cardinality: "many_to_one",
+        updateConstraint: "No action",
+        deleteConstraint: "No action",
+        participation: { end: "mandatory" },
+      },
+    ];
+    expect(jsonToMermaid(f)).toContain("}|--o|");
+  });
 });

@@ -8,6 +8,8 @@ import {
   normalizeCardinality,
   primaryKeyPairs,
 } from "./specialization";
+import { fr } from "../i18n/locales/fr";
+import { de } from "../i18n/locales/de";
 
 const field = (id, extra = {}) => ({
   id,
@@ -95,6 +97,26 @@ describe("childMin", () => {
   it("is 1 when the field cannot be found", () => {
     expect(childMin(rel({ startFieldId: "missing" }), tables)).toBe(1);
   });
+  it("is 0 when any field of a composite FK is nullable", () => {
+    const composite = rel({
+      startFieldId: "o_cust",
+      fields: [
+        { startFieldId: "o_cust", endFieldId: "c_id" },
+        { startFieldId: "o_ship", endFieldId: "c_id" },
+      ],
+    });
+    expect(childMin(composite, tables)).toBe(0);
+  });
+  it("is 1 when every field of a composite FK is mandatory", () => {
+    const composite = rel({
+      startFieldId: "o_id",
+      fields: [
+        { startFieldId: "o_id", endFieldId: "c_id" },
+        { startFieldId: "o_cust", endFieldId: "c_id" },
+      ],
+    });
+    expect(childMin(composite, tables)).toBe(1);
+  });
 });
 
 describe("badgeTexts", () => {
@@ -121,6 +143,20 @@ describe("badgeTexts", () => {
       badgeTexts(rel({ cardinality: "one_to_many", participation: { end: "mandatory" }, manyLabel: "m" }), tables),
     ).toEqual({ start: "1..1", end: "1..m" });
   });
+  it("uses the whole composite FK for the parent-side minimum", () => {
+    expect(
+      badgeTexts(
+        rel({
+          fields: [
+            { startFieldId: "o_cust", endFieldId: "c_id" },
+            { startFieldId: "o_ship", endFieldId: "c_id" },
+          ],
+          participation: { end: "optional" },
+        }),
+        tables,
+      ),
+    ).toEqual({ start: "0..n", end: "0..1" });
+  });
   it("returns the EER glyphs for a subtype link", () => {
     expect(badgeTexts(sub("a", "customer", "c_id"), tables)).toEqual({ start: "⊂", end: "o" });
     expect(badgeTexts(sub("a", "customer", "c_id", "role", { disjoint: true }), tables)).toEqual({
@@ -137,6 +173,16 @@ describe("badgeTexts", () => {
 describe("normalizeCardinality", () => {
   it("folds a legacy translated label to the enum form", () => {
     expect(normalizeCardinality({ cardinality: "Many to one" })).toBe("many_to_one");
+  });
+  it("folds a label saved in any bundled locale", () => {
+    for (const locale of [fr, de]) {
+      const label = locale.translation.many_to_one;
+      expect(normalizeCardinality({ cardinality: label })).toBe("many_to_one");
+      expect(badgeTexts(rel({ cardinality: label }), tables)).toEqual({
+        start: "n",
+        end: "1",
+      });
+    }
   });
 });
 

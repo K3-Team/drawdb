@@ -1,5 +1,8 @@
 // Node mirror of src/utils/specialization.js (the client file uses Vite-style
 // extensionless imports). Keep the two in sync.
+// The badge/label helpers (childMin, normalizeCardinality, badgeTexts) are
+// deliberately not mirrored: MCP never renders badges, so it needs neither the
+// composite-FK nullability rule nor the localised legacy cardinality labels.
 import {
   RelationshipKind,
   VALID_KINDS,

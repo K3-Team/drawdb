@@ -203,6 +203,22 @@ describe("jsonToDocumentation", () => {
   it("does not crash on hostile identifiers", () => {
     expect(typeof jsonToDocumentation(hostile())).toBe("string");
   });
+  it("escapes the badge text in the participation summary", () => {
+    const base = fixture().relationships[0];
+    const out = jsonToDocumentation(
+      fixture({
+        relationships: [
+          {
+            ...base,
+            manyLabel: "<img src=x onerror=alert(1)>",
+            participation: { end: "optional" },
+          },
+        ],
+      }),
+    );
+    expect(out).toContain("&lt;img");
+    expect(out).not.toContain("<img");
+  });
   it("lists specialisations and min..max participation", () => {
     const base = fixture().relationships[0];
     const out = jsonToDocumentation(

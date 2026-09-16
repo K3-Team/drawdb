@@ -139,7 +139,9 @@ export function jsonToDocumentation(obj) {
           ).name;
           const endTable = obj.tables.find((t) => t.id === r.endTableId).name;
           const b = badgeTexts(r, obj.tables);
-          const minmax = r.participation ? ` (${b.start} : ${b.end})` : "";
+          const minmax = r.participation
+            ? ` (${mdInline(b.start)} : ${mdInline(b.end)})`
+            : "";
           return `- **${mdInline(startTable)} to ${mdInline(endTable)}**: ${mdInline(r.cardinality)}${minmax}\n`;
         })
         .join("")
