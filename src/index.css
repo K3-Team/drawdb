@@ -243,5 +243,27 @@
   stroke-width: 6;
   stroke-dasharray: 12 8;
   animation: dash-right 1s linear infinite;
-  
+
+}
+
+.relationship-path--subtype {
+  stroke: #6b7280;
+}
+
+.relationship-path--total-under {
+  stroke: grey;
+  stroke-width: 7;
+  pointer-events: none;
+}
+
+.group:hover .relationship-path--total-under {
+  stroke: #0084d1;
+  stroke-width: 10;
+}
+
+/* the over-path paints the canvas background through the middle of the wide
+   under-path so the pair reads as a double line; keep it solid on hover */
+.group:hover .relationship-path--total-over {
+  stroke-dasharray: none;
+  animation: none;
 }

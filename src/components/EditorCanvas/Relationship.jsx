@@ -1,5 +1,6 @@
 import { memo, useMemo, useRef, useState, useEffect } from "react";
-import { Cardinality, ObjectType, Tab } from "../../data/constants";
+import { ObjectType, Tab, darkBgTheme } from "../../data/constants";
+import { badgeTexts, isSubtype } from "../../utils/specialization";
 import { calcPath, calcCompositePath } from "../../utils/calcPath";
 import { useDiagram, useSettings, useLayout, useSelect } from "../../hooks";
 import { useTranslation } from "react-i18next";
@@ -88,29 +89,11 @@ function Relationship({ data }) {
   const pathRef = useRef();
   const labelRef = useRef();
 
-  let cardinalityStart = "1";
-  let cardinalityEnd = "1";
-
-  switch (data.cardinality) {
-    // the translated values are to ensure backwards compatibility
-    case t(Cardinality.MANY_TO_ONE):
-    case Cardinality.MANY_TO_ONE:
-      cardinalityStart = data.manyLabel || "n";
-      cardinalityEnd = "1";
-      break;
-    case t(Cardinality.ONE_TO_MANY):
-    case Cardinality.ONE_TO_MANY:
-      cardinalityStart = "1";
-      cardinalityEnd = data.manyLabel || "n";
-      break;
-    case t(Cardinality.ONE_TO_ONE):
-    case Cardinality.ONE_TO_ONE:
-      cardinalityStart = "1";
-      cardinalityEnd = "1";
-      break;
-    default:
-      break;
-  }
+  const badges = useMemo(() => badgeTexts(data, tables), [data, tables]);
+  const cardinalityStart = badges.start;
+  const cardinalityEnd = badges.end;
+  const subtype = isSubtype(data);
+  const total = subtype && !!data.subtype?.total;
 
   let cardinalityStartX = 0;
   let cardinalityEndX = 0;
@@ -193,6 +176,22 @@ function Relationship({ data }) {
           strokeWidth={12}
           cursor="pointer"
         />
+        {total && (
+          <path
+            d={
+              composite
+                ? composite.path
+                : calcPath(
+                    pathValues,
+                    settings.tableWidth,
+                    1,
+                    settings.showComments,
+                  )
+            }
+            className="relationship-path relationship-path--total-under"
+            fill="none"
+          />
+        )}
         <path
           ref={pathRef}
           d={
@@ -205,7 +204,12 @@ function Relationship({ data }) {
                   settings.showComments,
                 )
           }
-          className="relationship-path"
+          className={`relationship-path${subtype ? " relationship-path--subtype" : ""}${total ? " relationship-path--total-over" : ""}`}
+          style={
+            total
+              ? { stroke: settings.mode === "dark" ? darkBgTheme : "white" }
+              : undefined
+          }
           fill="none"
           cursor="pointer"
         />
@@ -228,11 +232,13 @@ function Relationship({ data }) {
               x={cardinalityStartX}
               y={cardinalityStartY}
               text={cardinalityStart}
+              shape={subtype ? "circle" : "pill"}
             />
             <CardinalityLabel
               x={cardinalityEndX}
               y={cardinalityEndY}
               text={cardinalityEnd}
+              shape={subtype ? "circle" : "pill"}
             />
           </>
         )}
@@ -262,7 +268,14 @@ function Relationship({ data }) {
   );
 }
 
-function CardinalityLabel({ x, y, text, r = 12, padding = 14 }) {
+function CardinalityLabel({
+  x,
+  y,
+  text,
+  r = 12,
+  padding = 14,
+  shape = "pill",
+}) {
   const [textWidth, setTextWidth] = useState(0);
   const textRef = useRef(null);
 
@@ -273,23 +286,29 @@ function CardinalityLabel({ x, y, text, r = 12, padding = 14 }) {
     }
   }, [text]);
 
+  const isCircle = shape === "circle";
+  const width = isCircle ? r * 2 : textWidth + padding;
+
   return (
     <g>
       <rect
-        x={x - textWidth / 2 - padding / 2}
+        x={x - width / 2}
         y={y - r}
         rx={r}
         ry={r}
-        width={textWidth + padding}
+        width={width}
         height={r * 2}
-        fill="grey"
+        fill={isCircle ? "white" : "grey"}
+        stroke={isCircle ? "grey" : "none"}
+        strokeWidth={isCircle ? 2 : 0}
         className="group-hover:fill-sky-600"
       />
       <text
         ref={textRef}
         x={x}
         y={y}
-        fill="white"
+        fill={isCircle ? "#333" : "white"}
+        fontWeight={isCircle ? 700 : 400}
         strokeWidth="0.5"
         textAnchor="middle"
         alignmentBaseline="middle"
