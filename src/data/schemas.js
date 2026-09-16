@@ -201,6 +201,24 @@ export const jsonSchema = {
           updateConstraint: { type: "string" },
           deleteConstraint: { type: "string" },
           id: { type: ["integer", "string"] },
+          kind: { type: "string", enum: ["fk", "subtype"] },
+          subtype: {
+            type: "object",
+            properties: {
+              group: { type: "string" },
+              disjoint: { type: "boolean" },
+              total: { type: "boolean" },
+              discriminatorFieldId: { type: ["integer", "string"] },
+            },
+            required: ["group", "disjoint", "total"],
+          },
+          participation: {
+            type: "object",
+            properties: {
+              end: { type: "string", enum: ["optional", "mandatory"] },
+            },
+            required: ["end"],
+          },
         },
         required: [
           "startTableId",

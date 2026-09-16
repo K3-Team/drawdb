@@ -150,3 +150,55 @@ describe("bundled diagrams still pass the hardened schema", () => {
     });
   }
 });
+
+describe("relationship specialisation fields", () => {
+  const base = {
+    id: "r1",
+    name: "is_a_customer_user",
+    startTableId: "customer",
+    startFieldId: "c_id",
+    endTableId: "user",
+    endFieldId: "u_id",
+    cardinality: "one_to_one",
+    updateConstraint: "No action",
+    deleteConstraint: "Cascade",
+  };
+  const withRel = (r) => ({
+    tables: [],
+    relationships: [r],
+    notes: [],
+    subjectAreas: [],
+  });
+
+  it("accepts a legacy relationship without the new fields", () => {
+    expect(v.validate(withRel(base), jsonSchema).valid).toBe(true);
+  });
+
+  it("accepts a subtype relationship", () => {
+    const r = {
+      ...base,
+      kind: "subtype",
+      subtype: { group: "role", disjoint: false, total: true, discriminatorFieldId: "u_type" },
+    };
+    expect(v.validate(withRel(r), jsonSchema).valid).toBe(true);
+  });
+
+  it("accepts fk participation", () => {
+    const r = { ...base, kind: "fk", participation: { end: "optional" } };
+    expect(v.validate(withRel(r), jsonSchema).valid).toBe(true);
+  });
+
+  it("rejects an unknown kind", () => {
+    expect(v.validate(withRel({ ...base, kind: "weird" }), jsonSchema).valid).toBe(false);
+  });
+
+  it("rejects a subtype block missing its booleans", () => {
+    const r = { ...base, kind: "subtype", subtype: { group: "role" } };
+    expect(v.validate(withRel(r), jsonSchema).valid).toBe(false);
+  });
+
+  it("rejects an invalid participation value", () => {
+    const r = { ...base, participation: { end: "sometimes" } };
+    expect(v.validate(withRel(r), jsonSchema).valid).toBe(false);
+  });
+});
