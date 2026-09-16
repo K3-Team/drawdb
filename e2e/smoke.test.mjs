@@ -109,15 +109,38 @@ async function bootApp(t) {
       `--user-data-dir=${userDir}`,
       appUrl,
     ],
-    { stdio: "ignore" },
+    // Own process group so the renderer/GPU children die with the browser.
+    { stdio: "ignore", detached: true },
   );
 
   t.after(async () => {
-    chrome.kill("SIGKILL");
+    // Kill the whole Chromium process group and wait for the main process to
+    // exit before removing its profile dir; children still flushing the
+    // profile otherwise race into ENOTEMPTY.
+    const exited = new Promise((resolve) => {
+      if (chrome.exitCode !== null || chrome.signalCode !== null) resolve();
+      else chrome.once("exit", resolve);
+    });
+    try {
+      process.kill(-chrome.pid, "SIGKILL");
+    } catch {
+      chrome.kill("SIGKILL");
+    }
+    await exited;
     app.server.close();
     app.websocket.close();
     app.database.close();
-    fs.rmSync(userDir, { recursive: true, force: true });
+    try {
+      fs.rmSync(userDir, {
+        recursive: true,
+        force: true,
+        maxRetries: 10,
+        retryDelay: 100,
+      });
+    } catch (err) {
+      // A leftover temp profile is not a test failure.
+      console.warn(`[e2e] could not remove ${userDir}: ${err.message}`);
+    }
   });
 
   // 3. Find the page target and attach.
