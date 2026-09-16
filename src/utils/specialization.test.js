@@ -104,17 +104,17 @@ describe("badgeTexts", () => {
   it("honours manyLabel", () => {
     expect(badgeTexts(rel({ manyLabel: "*" }), tables)).toEqual({ start: "*", end: "1" });
   });
-  it("shows min..max when participation is set (look-here)", () => {
+  it("shows min..max when participation is set (look-across)", () => {
     expect(badgeTexts(rel({ participation: { end: "optional" } }), tables)).toEqual({
-      start: "1..1",
-      end: "0..n",
+      start: "0..n",
+      end: "1..1",
     });
     expect(
       badgeTexts(rel({ startFieldId: "o_ship", participation: { end: "mandatory" } }), tables),
-    ).toEqual({ start: "0..1", end: "1..n" });
+    ).toEqual({ start: "1..n", end: "0..1" });
     expect(
       badgeTexts(rel({ cardinality: "one_to_one", participation: { end: "optional" } }), tables),
-    ).toEqual({ start: "1..1", end: "0..1" });
+    ).toEqual({ start: "0..1", end: "1..1" });
     expect(
       badgeTexts(rel({ cardinality: "one_to_many", participation: { end: "mandatory" }, manyLabel: "m" }), tables),
     ).toEqual({ start: "1..1", end: "1..m" });

@@ -34,8 +34,7 @@ export function childMin(rel, tables) {
   return field.notNull || field.primary ? 1 : 0;
 }
 
-// Text for the start (child) and end (parent) badges. Look-here convention:
-// each badge describes how many times the adjacent table participates.
+// Text for the start (child) and end (parent) badges. Look-across convention (same as the legacy 1 / n badges): each badge describes how many rows of the adjacent table exist per row of the table at the far end.
 export function badgeTexts(rel, tables) {
   if (isSubtype(rel)) {
     return { start: "⊂", end: rel.subtype?.disjoint ? "d" : "o" };
@@ -44,13 +43,7 @@ export function badgeTexts(rel, tables) {
   const many = rel.manyLabel || "n";
   let startMax = "1";
   let endMax = "1";
-
-  // When participation is set, we invert many_to_one to show from parent perspective
-  const cardinality = rel.participation && rel.cardinality === Cardinality.MANY_TO_ONE
-    ? Cardinality.ONE_TO_MANY
-    : rel.cardinality;
-
-  switch (cardinality) {
+  switch (rel.cardinality) {
     case Cardinality.MANY_TO_ONE:
       startMax = many;
       break;
@@ -63,7 +56,11 @@ export function badgeTexts(rel, tables) {
 
   if (!rel.participation) return { start: startMax, end: endMax };
 
-  const endMin = rel.participation.end === Participation.MANDATORY ? 1 : 0;
-  const startMin = childMin(rel, tables);
+  // Look-across, like the legacy 1 / n badges: the badge beside the child
+  // (start) table reads "children per parent", so its min is the parent's
+  // participation; the badge beside the parent reads "parents per child",
+  // so its min is the FK's NOT NULL.
+  const startMin = rel.participation.end === Participation.MANDATORY ? 1 : 0;
+  const endMin = childMin(rel, tables);
   return { start: `${startMin}..${startMax}`, end: `${endMin}..${endMax}` };
 }
