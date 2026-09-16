@@ -2,7 +2,7 @@ import { Cardinality } from "../../data/constants";
 import { dbToTypes } from "../../data/datatypes";
 import i18n from "../../i18n/i18n";
 import { mermaidToken } from "./escape";
-import { childMin, isSubtype } from "../specialization";
+import { childMin, isSubtype, normalizeCardinality } from "../specialization";
 
 export function jsonToMermaid(obj) {
   // Legacy: bare cardinality with no participation info.
@@ -29,8 +29,9 @@ export function jsonToMermaid(obj) {
   function getMermaidParticipation(r) {
     const startMin = r.participation.end === "mandatory" ? 1 : 0;
     const endMin = childMin(r, obj.tables);
-    const startMany = r.cardinality === Cardinality.MANY_TO_ONE;
-    const endMany = r.cardinality === Cardinality.ONE_TO_MANY;
+    const cardinality = normalizeCardinality(r);
+    const startMany = cardinality === Cardinality.MANY_TO_ONE;
+    const endMany = cardinality === Cardinality.ONE_TO_MANY;
     const left = startMany ? (startMin ? "}|" : "}o") : startMin ? "||" : "|o";
     const right = endMany ? (endMin ? "|{" : "o{") : endMin ? "||" : "o|";
     return `${left}--${right}`;

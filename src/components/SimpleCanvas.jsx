@@ -81,7 +81,7 @@ function Relationship({ relationship, tables }) {
   let start = { x: 0, y: 0 };
   let end = { x: 0, y: 0 };
 
-  const badges = badgeTexts(relationship, []);
+  const badges = badgeTexts(relationship, tables);
   const cardinalityStart = badges.start;
   const cardinalityEnd = badges.end;
   const subtype = isSubtype(relationship);

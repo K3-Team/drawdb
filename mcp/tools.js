@@ -193,13 +193,13 @@ export function registerTools(server, session) {
       group: z.string().optional(),
       disjoint: z.boolean().optional(),
       total: z.boolean().optional(),
-      discriminatorFieldId: z.string().optional(),
+      discriminatorFieldId: z.string().nullable().optional(),
     },
     (a) => mutate((d) => M.addSpecialization(d, a)),
   );
   tool(
     "update_specialization",
-    "Rewrite the constraints (disjoint, total, discriminatorFieldId) of every subtype link in a specialisation group.",
+    "Rewrite the constraints (disjoint, total, discriminatorFieldId) of every subtype link in a specialisation group; passing group renames the group.",
     {
       supertypeTableId: z.string(),
       group: z.string().optional(),

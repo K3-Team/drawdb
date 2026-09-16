@@ -134,7 +134,12 @@ describe("generateMigrationSQL ignores EER-only relationship fields", () => {
   const to = {
     tables: [table(1, "users"), posts],
     relationships: [
-      { ...rel, kind: "fk", participation: { end: "mandatory" } },
+      {
+        ...rel,
+        kind: "fk",
+        participation: { end: "mandatory" },
+        subtype: { group: "role", disjoint: true, total: true },
+      },
     ],
   };
   for (const prop of ["kind", "participation", "subtype"]) {

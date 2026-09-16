@@ -34,6 +34,15 @@ export function childMin(rel, tables) {
   return field.notNull || field.primary ? 1 : 0;
 }
 
+// Old documents may carry a translated cardinality label ("Many to one");
+// fold it back to the enum form so legacy diagrams keep their n badge.
+export function normalizeCardinality(rel) {
+  return String(rel.cardinality ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, "_");
+}
+
 // Text for the start (child) and end (parent) badges. Look-across convention (same as the legacy 1 / n badges): each badge describes how many rows of the adjacent table exist per row of the table at the far end.
 export function badgeTexts(rel, tables) {
   if (isSubtype(rel)) {
@@ -43,12 +52,7 @@ export function badgeTexts(rel, tables) {
   const many = rel.manyLabel || "n";
   let startMax = "1";
   let endMax = "1";
-  // Old documents may carry a translated cardinality label ("Many to one");
-  // fold it back to the enum form so legacy diagrams keep their n badge.
-  const cardinality = String(rel.cardinality ?? "")
-    .trim()
-    .toLowerCase()
-    .replace(/\s+/g, "_");
+  const cardinality = normalizeCardinality(rel);
   switch (cardinality) {
     case Cardinality.MANY_TO_ONE:
       startMax = many;

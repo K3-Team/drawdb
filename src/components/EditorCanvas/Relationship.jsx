@@ -156,21 +156,16 @@ function Relationship({ data }) {
 
   if (!pathValues) return null;
 
+  const pathD = composite
+    ? composite.path
+    : calcPath(pathValues, settings.tableWidth, 1, settings.showComments);
+
   return (
     <>
       <g className="select-none group" onDoubleClick={edit}>
         {/* invisible wider path for better hover ux */}
         <path
-          d={
-            composite
-              ? composite.path
-              : calcPath(
-                  pathValues,
-                  settings.tableWidth,
-                  1,
-                  settings.showComments,
-                )
-          }
+          d={pathD}
           fill="none"
           stroke="transparent"
           strokeWidth={12}
@@ -178,32 +173,14 @@ function Relationship({ data }) {
         />
         {total && (
           <path
-            d={
-              composite
-                ? composite.path
-                : calcPath(
-                    pathValues,
-                    settings.tableWidth,
-                    1,
-                    settings.showComments,
-                  )
-            }
+            d={pathD}
             className="relationship-path relationship-path--total-under"
             fill="none"
           />
         )}
         <path
           ref={pathRef}
-          d={
-            composite
-              ? composite.path
-              : calcPath(
-                  pathValues,
-                  settings.tableWidth,
-                  1,
-                  settings.showComments,
-                )
-          }
+          d={pathD}
           className={`relationship-path${subtype ? " relationship-path--subtype" : ""}${total ? " relationship-path--total-over" : ""}`}
           style={
             total

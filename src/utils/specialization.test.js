@@ -5,6 +5,7 @@ import {
   subtypeName,
   childMin,
   badgeTexts,
+  normalizeCardinality,
 } from "./specialization";
 
 const field = (id, extra = {}) => ({
@@ -129,5 +130,11 @@ describe("badgeTexts", () => {
   it("tolerates legacy translated cardinality strings", () => {
     expect(badgeTexts(rel({ cardinality: "Many to one" }), tables)).toEqual({ start: "n", end: "1" });
     expect(badgeTexts(rel({ cardinality: "One to many" }), tables)).toEqual({ start: "1", end: "n" });
+  });
+});
+
+describe("normalizeCardinality", () => {
+  it("folds a legacy translated label to the enum form", () => {
+    expect(normalizeCardinality({ cardinality: "Many to one" })).toBe("many_to_one");
   });
 });
