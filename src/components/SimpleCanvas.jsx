@@ -1,12 +1,12 @@
 import { useEffect, useState, useRef } from "react";
 import {
-  Cardinality,
   tableColorStripHeight,
   tableFieldHeight,
   tableHeaderHeight,
   tableWidth,
 } from "../data/constants";
 import { calcPath } from "../utils/calcPath";
+import { badgeTexts, isSubtype } from "../utils/specialization";
 
 function Table({ table, grab }) {
   const [isHovered, setIsHovered] = useState(false);
@@ -81,25 +81,10 @@ function Relationship({ relationship, tables }) {
   let start = { x: 0, y: 0 };
   let end = { x: 0, y: 0 };
 
-  let cardinalityStart = "1";
-  let cardinalityEnd = "1";
-
-  switch (relationship.cardinality) {
-    case Cardinality.MANY_TO_ONE:
-      cardinalityStart = "n";
-      cardinalityEnd = "1";
-      break;
-    case Cardinality.ONE_TO_MANY:
-      cardinalityStart = "1";
-      cardinalityEnd = "n";
-      break;
-    case Cardinality.ONE_TO_ONE:
-      cardinalityStart = "1";
-      cardinalityEnd = "1";
-      break;
-    default:
-      break;
-  }
+  const badges = badgeTexts(relationship, []);
+  const cardinalityStart = badges.start;
+  const cardinalityEnd = badges.end;
+  const subtype = isSubtype(relationship);
 
   const length = 32;
 
@@ -138,22 +123,22 @@ function Relationship({ relationship, tables }) {
       />
       {pathRef.current && (
         <>
-          <circle cx={start.x} cy={start.y} r="12" fill="grey" />
+          <circle cx={start.x} cy={start.y} r="12" fill={subtype ? "white" : "grey"} stroke="grey" strokeWidth={subtype ? 2 : 0} />
           <text
             x={start.x}
             y={start.y}
-            fill="white"
+            fill={subtype ? "#333" : "white"}
             strokeWidth="0.5"
             textAnchor="middle"
             alignmentBaseline="middle"
           >
             {cardinalityStart}
           </text>
-          <circle cx={end.x} cy={end.y} r="12" fill="grey" />
+          <circle cx={end.x} cy={end.y} r="12" fill={subtype ? "white" : "grey"} stroke="grey" strokeWidth={subtype ? 2 : 0} />
           <text
             x={end.x}
             y={end.y}
-            fill="white"
+            fill={subtype ? "#333" : "white"}
             strokeWidth="0.5"
             textAnchor="middle"
             alignmentBaseline="middle"
