@@ -301,7 +301,7 @@ function CardinalityLabel({
         fill={isCircle ? "white" : "grey"}
         stroke={isCircle ? "grey" : "none"}
         strokeWidth={isCircle ? 2 : 0}
-        className="group-hover:fill-sky-600"
+        className={isCircle ? undefined : "group-hover:fill-sky-600"}
       />
       <text
         ref={textRef}

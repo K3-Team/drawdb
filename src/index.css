@@ -243,7 +243,6 @@
   stroke-width: 6;
   stroke-dasharray: 12 8;
   animation: dash-right 1s linear infinite;
-
 }
 
 .relationship-path--subtype {
@@ -259,6 +258,8 @@
 .group:hover .relationship-path--total-under {
   stroke: #0084d1;
   stroke-width: 10;
+  stroke-dasharray: none;
+  animation: none;
 }
 
 /* the over-path paints the canvas background through the middle of the wide

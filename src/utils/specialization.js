@@ -43,7 +43,13 @@ export function badgeTexts(rel, tables) {
   const many = rel.manyLabel || "n";
   let startMax = "1";
   let endMax = "1";
-  switch (rel.cardinality) {
+  // Old documents may carry a translated cardinality label ("Many to one");
+  // fold it back to the enum form so legacy diagrams keep their n badge.
+  const cardinality = String(rel.cardinality ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, "_");
+  switch (cardinality) {
     case Cardinality.MANY_TO_ONE:
       startMax = many;
       break;
