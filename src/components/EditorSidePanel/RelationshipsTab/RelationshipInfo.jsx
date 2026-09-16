@@ -285,13 +285,13 @@ export default function RelationshipInfo({ data }) {
   };
 
   // Rewrites the subtype block on this link and every sibling in one undo entry.
-  const changeSpecialisation = (patch, extra) => {
+  const changeSpecialisation = (patch, extra, undoOverrides = {}) => {
     if (layout.readOnly) return;
     const next = { ...data.subtype, ...patch };
     const targets = siblings.length ? siblings : [data];
     const batch = targets.map((r) => ({
       rid: r.id,
-      undo: { subtype: r.subtype },
+      undo: undoOverrides[r.id] ?? { subtype: r.subtype },
       redo: { subtype: { ...next } },
     }));
     setUndoStack((prev) => [
@@ -471,7 +471,9 @@ export default function RelationshipInfo({ data }) {
             value={data.subtype?.group ?? ""}
             readonly={layout.readOnly}
             onChange={(raw) => {
-              const value = raw.replace(/["`\]\n\t;]/g, "");
+              // Mirrors IDENTIFIER_PATTERN in src/data/schemas.js.
+              // eslint-disable-next-line no-control-regex
+              const value = raw.replace(/[ -"`\];]/g, "");
               updateRelationship(data.id, {
                 subtype: { ...data.subtype, group: value },
               });
@@ -487,16 +489,21 @@ export default function RelationshipInfo({ data }) {
                   String(r.endTableId) === String(data.endTableId) &&
                   (r.subtype?.group ?? "") === group,
               );
+              const ps = peer?.subtype ?? {};
+              const undoOverrides = {
+                [data.id]: { subtype: { ...data.subtype, group: editField.group } },
+              };
               changeSpecialisation(
                 peer
                   ? {
                       group,
-                      disjoint: peer.subtype.disjoint,
-                      total: peer.subtype.total,
-                      discriminatorFieldId: peer.subtype.discriminatorFieldId,
+                      disjoint: ps.disjoint,
+                      total: ps.total,
+                      discriminatorFieldId: ps.discriminatorFieldId,
                     }
                   : { group },
                 "[group]",
+                undoOverrides,
               );
             }}
           />
