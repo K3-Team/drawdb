@@ -25,6 +25,11 @@ export function subtypeName(subtypeTableName, supertypeTableName) {
   return `is_a_${subtypeTableName}_${supertypeTableName}`;
 }
 
+// Mirrors IDENTIFIER_PATTERN in src/data/schemas.js: no control characters,
+// and none of the characters that could break out of a quoted/DBML context.
+// eslint-disable-next-line no-control-regex
+const IDENTIFIER_RE = /^[^\u0000-\u001F\u007F"`\];]*$/;
+
 export function normalizeKind(kind) {
   if (kind === undefined) return RelationshipKind.FK;
   if (!VALID_KINDS.includes(kind)) throw new Error(`Invalid kind: ${kind}`);
@@ -37,6 +42,7 @@ export function normalizeSubtype(input, supertype) {
   if (!input || typeof input !== "object")
     throw new Error("subtype requires { group, disjoint, total }");
   const group = typeof input.group === "string" ? input.group : "";
+  if (!IDENTIFIER_RE.test(group)) throw new Error(`Invalid group: ${group}`);
   const out = {
     group,
     disjoint: !!input.disjoint,

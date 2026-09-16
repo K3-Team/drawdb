@@ -215,6 +215,15 @@ test("addRelationship rejects a bad kind, a bad discriminator and bad participat
     () => addRelationship(doc, { ...base, participation: { end: "maybe" } }),
     /Invalid participation/,
   );
+  assert.throws(
+    () =>
+      addRelationship(doc, {
+        ...base,
+        kind: "subtype",
+        subtype: { group: "ro\nle" },
+      }),
+    /Invalid group/,
+  );
 });
 
 test("addRelationship stores fk participation and updateRelationship can clear it", () => {

@@ -141,6 +141,10 @@ function note(text) {
   return `'${String(text).replace(/\\/g, "\\\\").replace(/'/g, "\\'")}'`;
 }
 
+// Defence in depth for old documents: a comment must never carry a line
+// break, or it stops being a comment for the rest of the line.
+const oneLine = (s) => String(s ?? "").replace(/[\r\n]+/g, " ");
+
 export function exportDbml(doc) {
   const lines = [];
 
@@ -188,7 +192,7 @@ export function exportDbml(doc) {
       const s = r.subtype ?? {};
       const disc = fieldName(et, s.discriminatorFieldId);
       lines.push(
-        `// subtype: group=${s.group ?? ""} ${s.disjoint ? "disjoint" : "overlapping"} ${s.total ? "total" : "partial"}${disc ? ` discriminator=${disc}` : ""}`,
+        `// subtype: group=${oneLine(s.group ?? "")} ${s.disjoint ? "disjoint" : "overlapping"} ${s.total ? "total" : "partial"}${disc ? ` discriminator=${oneLine(disc)}` : ""}`,
       );
     }
   }

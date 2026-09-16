@@ -125,6 +125,32 @@ describe("toDBML", () => {
     expect(out).toContain("// subtype: group=role disjoint partial discriminator=email");
     expect(out).toMatch(/Ref "?is_a_posts_users"?/);
   });
+  it("keeps a subtype comment on one line even if the group carries a newline", () => {
+    const out = toDBML(
+      fixture({
+        relationships: [
+          {
+            id: "r2",
+            name: "is_a_posts_users",
+            startTableId: "t2",
+            startFieldId: "f3",
+            endTableId: "t1",
+            endFieldId: "f1",
+            cardinality: "one_to_one",
+            updateConstraint: "No action",
+            deleteConstraint: "Cascade",
+            kind: "subtype",
+            subtype: { group: "ro\nle", disjoint: true, total: true },
+          },
+        ],
+      }),
+    );
+    expect(out).toContain("// subtype: group=ro le disjoint total");
+    for (const line of out.split("\n")) {
+      if (line.startsWith("// subtype:")) continue;
+      expect(line.startsWith("subtype:")).toBe(false);
+    }
+  });
 });
 
 describe("jsonToMermaid", () => {

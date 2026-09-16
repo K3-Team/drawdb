@@ -120,6 +120,10 @@ function processType(type) {
   return dbmlType(type);
 }
 
+// Defence in depth for old documents: a comment must never carry a line
+// break, or it stops being a comment for the rest of the line.
+const oneLine = (s) => String(s ?? "").replace(/[\r\n]+/g, " ");
+
 // DBML has no specialisation syntax; record it as a comment for readers.
 export function subtypeComment(rel, supertypeFields) {
   if (!isSubtype(rel)) return "";
@@ -128,8 +132,8 @@ export function subtypeComment(rel, supertypeFields) {
     (f) => String(f.id) === String(s.discriminatorFieldId),
   )?.name;
   return (
-    `\n// subtype: group=${s.group ?? ""} ${s.disjoint ? "disjoint" : "overlapping"} ` +
-    `${s.total ? "total" : "partial"}${disc ? ` discriminator=${disc}` : ""}`
+    `\n// subtype: group=${oneLine(s.group ?? "")} ${s.disjoint ? "disjoint" : "overlapping"} ` +
+    `${s.total ? "total" : "partial"}${disc ? ` discriminator=${oneLine(disc)}` : ""}`
   );
 }
 
