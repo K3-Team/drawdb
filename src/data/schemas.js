@@ -205,7 +205,7 @@ export const jsonSchema = {
           subtype: {
             type: "object",
             properties: {
-              group: { type: "string" },
+              group: identifier,
               disjoint: { type: "boolean" },
               total: { type: "boolean" },
               discriminatorFieldId: { type: ["integer", "string"] },

@@ -201,4 +201,11 @@ describe("relationship specialisation fields", () => {
     const r = { ...base, participation: { end: "sometimes" } };
     expect(v.validate(withRel(r), jsonSchema).valid).toBe(false);
   });
+
+  it("rejects a subtype group carrying a line break or quote", () => {
+    for (const group of ["ro\nle", 'ro"le', "ro`le"]) {
+      const r = { ...base, kind: "subtype", subtype: { group, disjoint: true, total: true } };
+      expect(v.validate(withRel(r), jsonSchema).valid).toBe(false);
+    }
+  });
 });
